@@ -88,29 +88,24 @@ func (w *Worker) Listen() error {
 }
 
 func (w *Worker) handleWebhook(_ http.ResponseWriter, r *http.Request) {
-	log.Println()
-	log.Println("### BEGIN NEW WEBHOOK ###")
-	defer func() {
-		log.Println("######### DONE ##########")
-	}()
-
 	//goland:noinspection GoUnhandledErrorResult
 	defer r.Body.Close()
 	var target struct {
 		Version string            `json:"version"`
 		Data    whTransactionRead `json:"content"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&target); err != nil {
-		log.Println("ERROR: could not parse webhook body:", err)
-		return
-	} else if target.Version == "" {
-		log.Println("ERROR: webhook body not in expected structure")
+	if err := json.NewDecoder(r.Body).Decode(&target); err != nil || target.Version == "" {
+		log.Println("WARNING: received request with invalid body structure")
 		return
 	}
+
+	log.Println()
+	log.Println("### BEGIN NEW WEBHOOK ###")
 
 	if err := w.checkAndUpdateTransaction(target.Data); err != nil {
 		log.Println(">> WARNING: error updating transaction:", err)
 	}
+	log.Println("######### DONE ##########")
 }
 
 func (w *Worker) request(method string, url string, params map[string]string, body io.Reader) (*http.Response, error) {
