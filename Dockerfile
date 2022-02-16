@@ -1,5 +1,7 @@
 FROM golang:rc-alpine as build
 
+RUN apk update && apk upgrade && apk add git
+
 WORKDIR /usr/src/app
 
 COPY go.mod go.sum ./
