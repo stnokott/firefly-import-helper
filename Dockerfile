@@ -1,6 +1,6 @@
-FROM golang:1.17 as build
+FROM golang:1.17-alpine as build
 
-RUN apt-get update && apt-get upgrade -y && apt-get install git -y
+RUN apk --no-cache add git
 
 WORKDIR /usr/src/app
 
