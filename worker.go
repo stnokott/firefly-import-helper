@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"time"
 )
 
 type Worker struct {
@@ -64,7 +65,21 @@ func (w *Worker) Listen() error {
 
 	http.HandleFunc("/", w.handleWebhook)
 	log.Println()
-	log.Printf("Listening for webhooks on port %d...", port)
+	log.Printf("Starting server on port %d...", port)
+
+	go func() {
+		time.Sleep(2 * time.Second) // give a little time for server to be up and running
+		resp, err := http.Get(w.webhookUrl)
+		//goland:noinspection GoUnhandledErrorResult
+		if err != nil {
+			log.Fatalln("Error validating server connection:", err)
+		} else if resp.StatusCode != 200 {
+			log.Fatalln("Could not validate connection from webhook URL ", w.webhookUrl)
+		}
+		log.Println("Connection to", w.webhookUrl, "validated")
+		log.Println("Ready to accept connections!")
+	}()
+
 	err = http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
 	if err != nil && err != http.ErrServerClosed {
 		log.Println("HTTP server error:", err)
