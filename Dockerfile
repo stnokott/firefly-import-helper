@@ -1,6 +1,4 @@
-FROM golang:rc-alpine as build
-
-RUN apk update && apk upgrade && apk add git
+FROM golang:1.17 as build
 
 WORKDIR /usr/src/app
 
