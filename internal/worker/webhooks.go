@@ -146,3 +146,43 @@ func (w *Worker) checkAndUpdateTransaction(t structs.WhTransactionRead) error {
 		return w.notifyFromApiResponse(&updateResponse.Data)
 	}
 }
+
+func (w *Worker) newNotificationParams(id string, transactions []notificationTransaction) *notificationParams {
+	uri := w.fireflyBaseUrl
+	if id != "" {
+		uri += "/transactions/show/" + id
+	} else {
+		id = "n/a"
+	}
+	return &notificationParams{id, uri, transactions}
+}
+
+func (w *Worker) notifyFromApiResponse(t *structs.TransactionRead) error {
+	transactions := make([]notificationTransaction, len(t.Attributes.Transactions))
+	for i, transaction := range t.Attributes.Transactions {
+		transactions[i] = *newNotificationTransaction(
+			transaction.Date,
+			transaction.SourceName,
+			transaction.DestinationName,
+			transaction.Amount,
+			transaction.CurrencySymbol,
+			transaction.Description,
+		)
+	}
+	return w.telegramBot.notifyNewTransaction(w.newNotificationParams(t.Id, transactions))
+}
+
+func (w *Worker) notifyFromWebhook(t *structs.WhTransactionRead) error {
+	transactions := make([]notificationTransaction, len(t.Transactions))
+	for i, transaction := range t.Transactions {
+		transactions[i] = *newNotificationTransaction(
+			transaction.Date,
+			transaction.SourceName,
+			transaction.DestinationName,
+			transaction.Amount,
+			transaction.CurrencySymbol,
+			transaction.Description,
+		)
+	}
+	return w.telegramBot.notifyNewTransaction(w.newNotificationParams(strconv.Itoa(t.Id), transactions))
+}

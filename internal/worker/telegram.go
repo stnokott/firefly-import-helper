@@ -2,7 +2,6 @@ package worker
 
 import (
 	"bytes"
-	"firefly-iii-fix-ing/internal/structs"
 	"fmt"
 	tele "gopkg.in/telebot.v3"
 	"html/template"
@@ -12,7 +11,12 @@ import (
 	"time"
 )
 
-func NewBot(token string) (*tele.Bot, error) {
+type TelegramBot struct {
+	chatId int64
+	bot    *tele.Bot
+}
+
+func NewBot(token string, chatId int64) (*TelegramBot, error) {
 	bot, err := tele.NewBot(
 		tele.Settings{
 			Token:  token,
@@ -23,13 +27,18 @@ func NewBot(token string) (*tele.Bot, error) {
 		return nil, err
 	}
 
-	return bot, nil
+	return &TelegramBot{chatId: chatId, bot: bot}, nil
+}
+
+func (t *TelegramBot) Listen() {
+	log.Println("Running Telegram bot...")
+	t.bot.Start()
 }
 
 type notificationParams struct {
-	Id           string
-	Href         string
-	Transactions []notificationTransaction
+	TransactionId   string
+	TransactionHref string
+	SubTransactions []notificationTransaction
 }
 
 type notificationTransaction struct {
@@ -42,23 +51,13 @@ type notificationTransaction struct {
 
 var notificationTemplate = template.Must(template.New("telegramNotification").Parse(`
 <b>💸 Neue Firefly-III-Transaktion 💸</b>
-<a href="{{.Href}}">Transaktion #{{.Id}}</a>
-<tg-spoiler>{{range .Transactions}}
+<a href="{{.TransactionHref}}">Transaktion #{{.TransactionId}}</a>
+<tg-spoiler>{{range .SubTransactions}}
 	📆 <i>{{.DateStr}}</i>
 	✏️ {{.Description}}
 	⚖️ <i>{{.SourceName}}</i> ➜ <i>{{.DestinationName}}</i>
 	💶 <u><b>{{.AmountStr}}</b></u>
 {{end}}</tg-spoiler>`))
-
-func (w *Worker) newNotificationParams(id string, transactions []notificationTransaction) *notificationParams {
-	uri := w.fireflyBaseUrl
-	if id != "" {
-		uri += "/transactions/show/" + id
-	} else {
-		id = "n/a"
-	}
-	return &notificationParams{id, uri, transactions}
-}
 
 const maxLenDescription = 50
 const maxLenAccountName = 25
@@ -105,38 +104,8 @@ func newNotificationTransaction(date string, sourceName string, destName string,
 	}
 }
 
-func (w *Worker) notifyFromApiResponse(t *structs.TransactionRead) error {
-	transactions := make([]notificationTransaction, len(t.Attributes.Transactions))
-	for i, transaction := range t.Attributes.Transactions {
-		transactions[i] = *newNotificationTransaction(
-			transaction.Date,
-			transaction.SourceName,
-			transaction.DestinationName,
-			transaction.Amount,
-			transaction.CurrencySymbol,
-			transaction.Description,
-		)
-	}
-	return w.notifyNewTransaction(w.newNotificationParams(t.Id, transactions))
-}
-
-func (w *Worker) notifyFromWebhook(t *structs.WhTransactionRead) error {
-	transactions := make([]notificationTransaction, len(t.Transactions))
-	for i, transaction := range t.Transactions {
-		transactions[i] = *newNotificationTransaction(
-			transaction.Date,
-			transaction.SourceName,
-			transaction.DestinationName,
-			transaction.Amount,
-			transaction.CurrencySymbol,
-			transaction.Description,
-		)
-	}
-	return w.notifyNewTransaction(w.newNotificationParams(strconv.Itoa(t.Id), transactions))
-}
-
-func (w *Worker) notifyNewTransaction(params *notificationParams) error {
-	if len(params.Transactions) == 0 {
+func (t *TelegramBot) notifyNewTransaction(params *notificationParams) error {
+	if len(params.SubTransactions) == 0 {
 		return nil
 	}
 
@@ -146,8 +115,8 @@ func (w *Worker) notifyNewTransaction(params *notificationParams) error {
 	}
 	log.Println(">> Sending notification...")
 
-	_, err := w.telegramBot.Send(
-		&tele.User{ID: w.telegramChatId},
+	_, err := t.bot.Send(
+		&tele.User{ID: t.chatId},
 		body.String(),
 		tele.ModeHTML,
 	)

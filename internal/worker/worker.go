@@ -5,7 +5,6 @@ import (
 	"firefly-iii-fix-ing/internal/modules"
 	"firefly-iii-fix-ing/internal/structs"
 	"fmt"
-	tele "gopkg.in/telebot.v3"
 	"io"
 	"log"
 	"net/http"
@@ -21,7 +20,7 @@ type Worker struct {
 	targetWebhook             structs.WebhookAttributes
 	fireflyAccessToken        string
 	fireflyBaseUrl            string
-	telegramBot               *tele.Bot
+	telegramBot               *TelegramBot
 	telegramChatId            int64
 }
 
@@ -36,7 +35,7 @@ func NewWorker(fireflyAccessToken string, fireflyBaseUrl string, telegramOptions
 		fireflyBaseUrl = fireflyBaseUrl[:len(fireflyBaseUrl)-1]
 	}
 
-	bot, err := NewBot(telegramOptions.AccessToken)
+	bot, err := NewBot(telegramOptions.AccessToken, telegramOptions.ChatId)
 	if err != nil {
 		return nil, err
 	}
@@ -63,6 +62,16 @@ func NewWorker(fireflyAccessToken string, fireflyBaseUrl string, telegramOptions
 	}, nil
 }
 
+func (w *Worker) createHttpServer() *http.Server {
+	handler := http.NewServeMux()
+	handler.HandleFunc("/", w.handleWebhook)
+	srv := &http.Server{
+		Addr:    fmt.Sprintf(":%d", port),
+		Handler: handler,
+	}
+	return srv
+}
+
 const port = 8080
 
 func (w *Worker) Listen() error {
@@ -72,13 +81,15 @@ func (w *Worker) Listen() error {
 		return err
 	}
 	log.Println(">> Webhook ready at", url)
-
-	http.HandleFunc("/", w.handleWebhook)
 	log.Println()
-	log.Printf("Starting server on port %d...", port)
+
+	// start telegram bot
+	go w.telegramBot.Listen()
+
+	srv := w.createHttpServer()
 
 	go func() {
-		time.Sleep(2 * time.Second) // give a little time for server to be up and running
+		time.Sleep(1 * time.Second) // give a little time for server to be up and running
 		resp, err := http.Get(w.webhookUrl)
 		//goland:noinspection GoUnhandledErrorResult
 		if err != nil {
@@ -90,10 +101,13 @@ func (w *Worker) Listen() error {
 		log.Println("Ready to accept connections!")
 	}()
 
-	err = http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
+	// start webserver
+	log.Printf("Starting server on port %d...", port)
+	err = srv.ListenAndServe()
 	if err != nil && err != http.ErrServerClosed {
 		log.Println("HTTP server error:", err)
 	}
+
 	return nil
 }
 
