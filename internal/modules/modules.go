@@ -1,22 +1,23 @@
-package main
+package modules
 
 import (
+	"firefly-iii-fix-ing/internal/structs"
 	"log"
 	"regexp"
 	"strings"
 )
 
 type fixTransactionModule interface {
-	process(s *transactionSplitUpdate) (*transactionSplitUpdate, error)
+	process(s *structs.TransactionSplitUpdate) (*structs.TransactionSplitUpdate, error)
 	shouldReturnOnSuccess() bool
 	name() string
 }
 
-type moduleHandler struct {
+type ModuleHandler struct {
 	moduleFuncs []fixTransactionModule
 }
 
-func NewModuleHandler() *moduleHandler {
+func NewModuleHandler() *ModuleHandler {
 	log.Println("Loading modules...")
 	moduleFuncs := []fixTransactionModule{
 		&moduleLinebreaks{},
@@ -26,10 +27,10 @@ func NewModuleHandler() *moduleHandler {
 	for _, m := range moduleFuncs {
 		log.Printf(">> [%s]", m.name())
 	}
-	return &moduleHandler{moduleFuncs: moduleFuncs}
+	return &ModuleHandler{moduleFuncs: moduleFuncs}
 }
 
-func mergeTransactionUpdates(src *transactionSplitUpdate, dst *transactionSplitUpdate, moduleName string) {
+func mergeTransactionUpdates(src *structs.TransactionSplitUpdate, dst *structs.TransactionSplitUpdate, moduleName string) {
 	updatedVals := map[string]string{}
 	if src.CreditorId != "" {
 		dst.CreditorId = src.CreditorId
@@ -50,9 +51,9 @@ func mergeTransactionUpdates(src *transactionSplitUpdate, dst *transactionSplitU
 	}
 }
 
-func (mh *moduleHandler) processIncremental(s *whTransactionSplit) (*transactionSplitUpdate, error) {
+func (mh *ModuleHandler) Process(s *structs.WhTransactionSplit) (*structs.TransactionSplitUpdate, error) {
 	didUpdate := false
-	finalUpdate := &transactionSplitUpdate{
+	finalUpdate := &structs.TransactionSplitUpdate{
 		JournalId:   s.JournalId,
 		Description: s.Description,
 	}
@@ -92,7 +93,7 @@ func (m *moduleIngDescriptionFormat) shouldReturnOnSuccess() bool {
 
 var regexIngDescription = regexp.MustCompile(`^mandatereference:(.*),creditorid:(.*),remittanceinformation:(.*)$`)
 
-func (m *moduleIngDescriptionFormat) process(s *transactionSplitUpdate) (*transactionSplitUpdate, error) {
+func (m *moduleIngDescriptionFormat) process(s *structs.TransactionSplitUpdate) (*structs.TransactionSplitUpdate, error) {
 	matches := regexIngDescription.FindStringSubmatch(s.Description)
 	if matches == nil {
 		return nil, nil
@@ -103,7 +104,7 @@ func (m *moduleIngDescriptionFormat) process(s *transactionSplitUpdate) (*transa
 			// revert if empty
 			description = s.Description
 		}
-		return &transactionSplitUpdate{
+		return &structs.TransactionSplitUpdate{
 			MandateReference: matches[0],
 			CreditorId:       matches[1],
 			Description:      description,
@@ -122,12 +123,12 @@ func (m *moduleLinebreaks) shouldReturnOnSuccess() bool {
 	return false
 }
 
-func (m *moduleLinebreaks) process(s *transactionSplitUpdate) (*transactionSplitUpdate, error) {
+func (m *moduleLinebreaks) process(s *structs.TransactionSplitUpdate) (*structs.TransactionSplitUpdate, error) {
 	newDescription := strings.ReplaceAll(s.Description, "; ", "")
 	if newDescription == s.Description {
 		return nil, nil
 	} else {
-		return &transactionSplitUpdate{
+		return &structs.TransactionSplitUpdate{
 			Description: newDescription,
 		}, nil
 	}
@@ -146,13 +147,13 @@ func (m *modulePaypalDescriptionFormat) shouldReturnOnSuccess() bool {
 
 var regexPaypalDescription = regexp.MustCompile(`^PP\.\d{4}\.PP \. .+, Ihr (Einkauf bei .+)$`)
 
-func (m *modulePaypalDescriptionFormat) process(s *transactionSplitUpdate) (*transactionSplitUpdate, error) {
+func (m *modulePaypalDescriptionFormat) process(s *structs.TransactionSplitUpdate) (*structs.TransactionSplitUpdate, error) {
 	matches := regexPaypalDescription.FindStringSubmatch(s.Description)
 	if matches == nil {
 		return nil, nil
 	} else {
 		matches = matches[1:] // remove first entry containing the whole match
-		return &transactionSplitUpdate{
+		return &structs.TransactionSplitUpdate{
 			Description: "PayPal: " + matches[0],
 		}, nil
 	}
