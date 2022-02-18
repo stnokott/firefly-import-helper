@@ -1,15 +1,30 @@
-package main
+package worker
 
 import (
 	"bytes"
+	"firefly-iii-fix-ing/internal/structs"
 	"fmt"
-	"github.com/containrrr/shoutrrr"
+	tele "gopkg.in/telebot.v3"
 	"html/template"
 	"log"
 	"strconv"
 	"strings"
 	"time"
 )
+
+func NewBot(token string) (*tele.Bot, error) {
+	bot, err := tele.NewBot(
+		tele.Settings{
+			Token:  token,
+			Poller: &tele.LongPoller{Timeout: 10 * time.Second},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return bot, nil
+}
 
 type notificationParams struct {
 	Id           string
@@ -90,7 +105,7 @@ func newNotificationTransaction(date string, sourceName string, destName string,
 	}
 }
 
-func (w *Worker) notifyFromApiResponse(t *transactionRead) error {
+func (w *Worker) notifyFromApiResponse(t *structs.TransactionRead) error {
 	transactions := make([]notificationTransaction, len(t.Attributes.Transactions))
 	for i, transaction := range t.Attributes.Transactions {
 		transactions[i] = *newNotificationTransaction(
@@ -105,7 +120,7 @@ func (w *Worker) notifyFromApiResponse(t *transactionRead) error {
 	return w.notifyNewTransaction(w.newNotificationParams(t.Id, transactions))
 }
 
-func (w *Worker) notifyFromWebhook(t *whTransactionRead) error {
+func (w *Worker) notifyFromWebhook(t *structs.WhTransactionRead) error {
 	transactions := make([]notificationTransaction, len(t.Transactions))
 	for i, transaction := range t.Transactions {
 		transactions[i] = *newNotificationTransaction(
@@ -124,18 +139,19 @@ func (w *Worker) notifyNewTransaction(params *notificationParams) error {
 	if len(params.Transactions) == 0 {
 		return nil
 	}
-	url := fmt.Sprintf(
-		"telegram://%s@telegram?chats=%s&parseMode=HTML",
-		w.telegramOptions.AccessToken,
-		w.telegramOptions.ChatId,
-	)
 
 	body := bytes.NewBufferString(``)
 	if err := notificationTemplate.Execute(body, params); err != nil {
 		return err
 	}
 	log.Println(">> Sending notification...")
-	return shoutrrr.Send(url, body.String())
+
+	_, err := w.telegramBot.Send(
+		&tele.User{ID: w.telegramChatId},
+		body.String(),
+		tele.ModeHTML,
+	)
+	return err
 }
 
 func formatStr(s string, maxLen int) string {

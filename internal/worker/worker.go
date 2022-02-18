@@ -1,8 +1,11 @@
-package main
+package worker
 
 import (
 	"encoding/json"
+	"firefly-iii-fix-ing/internal/modules"
+	"firefly-iii-fix-ing/internal/structs"
 	"fmt"
+	tele "gopkg.in/telebot.v3"
 	"io"
 	"log"
 	"net/http"
@@ -10,20 +13,21 @@ import (
 )
 
 type Worker struct {
-	moduleHandler             *moduleHandler
-	telegramOptions           *TelegramOptions
+	moduleHandler             *modules.ModuleHandler
 	endpointUpdateTransaction string
 	endpointAccount           string
 	endpointWebhooks          string
 	webhookUrl                string
-	targetWebhook             webhookAttributes
+	targetWebhook             structs.WebhookAttributes
 	fireflyAccessToken        string
 	fireflyBaseUrl            string
+	telegramBot               *tele.Bot
+	telegramChatId            int64
 }
 
 type TelegramOptions struct {
 	AccessToken string
-	ChatId      string
+	ChatId      int64
 }
 
 func NewWorker(fireflyAccessToken string, fireflyBaseUrl string, telegramOptions *TelegramOptions) (*Worker, error) {
@@ -32,15 +36,19 @@ func NewWorker(fireflyAccessToken string, fireflyBaseUrl string, telegramOptions
 		fireflyBaseUrl = fireflyBaseUrl[:len(fireflyBaseUrl)-1]
 	}
 
+	bot, err := NewBot(telegramOptions.AccessToken)
+	if err != nil {
+		return nil, err
+	}
+
 	webhookUrl := fireflyBaseUrl + "/wh_fix_ing"
 	return &Worker{
-		moduleHandler:             NewModuleHandler(),
+		moduleHandler:             modules.NewModuleHandler(),
 		endpointUpdateTransaction: fireflyBaseUrl + "/api/v1/transactions/%d",
 		endpointAccount:           fireflyBaseUrl + "/api/v1/accounts/%s",
 		endpointWebhooks:          fireflyBaseUrl + "/api/v1/webhooks",
 		webhookUrl:                webhookUrl,
-		telegramOptions:           telegramOptions,
-		targetWebhook: webhookAttributes{
+		targetWebhook: structs.WebhookAttributes{
 			Active:   true,
 			Title:    "Fix ING transaction descriptions from Importer",
 			Response: "RESPONSE_TRANSACTIONS",
@@ -50,6 +58,8 @@ func NewWorker(fireflyAccessToken string, fireflyBaseUrl string, telegramOptions
 		},
 		fireflyAccessToken: fireflyAccessToken,
 		fireflyBaseUrl:     fireflyBaseUrl,
+		telegramBot:        bot,
+		telegramChatId:     telegramOptions.ChatId,
 	}, nil
 }
 
@@ -91,8 +101,8 @@ func (w *Worker) handleWebhook(_ http.ResponseWriter, r *http.Request) {
 	//goland:noinspection GoUnhandledErrorResult
 	defer r.Body.Close()
 	var target struct {
-		Version string            `json:"version"`
-		Data    whTransactionRead `json:"content"`
+		Version string                    `json:"version"`
+		Data    structs.WhTransactionRead `json:"content"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&target); err != nil || target.Version == "" {
 		log.Println("WARNING: received request with invalid body structure")

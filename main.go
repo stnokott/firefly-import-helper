@@ -1,8 +1,10 @@
 package main
 
 import (
+	"firefly-iii-fix-ing/internal/worker"
 	"log"
 	"os"
+	"strconv"
 )
 
 const envBaseUrl = "FIREFLY_HTTPS_URL"
@@ -28,16 +30,20 @@ func main() {
 	if telegramChatId == "" {
 		log.Fatalln("environment variable ", envTelegramChatId, "not set!")
 	}
+	chatIdInt, err := strconv.ParseInt(telegramChatId, 10, 64)
+	if err != nil {
+		log.Fatalln(err)
+	}
 
-	telegramOptions := TelegramOptions{
+	telegramOptions := worker.TelegramOptions{
 		AccessToken: telegramAccessToken,
-		ChatId:      telegramChatId,
+		ChatId:      chatIdInt,
 	}
 	log.Println("#########################")
 	log.Println("###       SETUP       ###")
 	log.Println("#########################")
 	log.Println()
-	w, err := NewWorker(fireflyAccessToken, fireflyBaseUrl, &telegramOptions)
+	w, err := worker.NewWorker(fireflyAccessToken, fireflyBaseUrl, &telegramOptions)
 	if err != nil {
 		log.Fatalln(err)
 	}
