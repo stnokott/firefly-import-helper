@@ -11,12 +11,12 @@ import (
 	"time"
 )
 
-type TelegramBot struct {
+type telegramBot struct {
 	chatId int64
 	bot    *tele.Bot
 }
 
-func NewBot(token string, chatId int64) (*TelegramBot, error) {
+func NewBot(token string, chatId int64) (*telegramBot, error) {
 	bot, err := tele.NewBot(
 		tele.Settings{
 			Token:  token,
@@ -27,10 +27,10 @@ func NewBot(token string, chatId int64) (*TelegramBot, error) {
 		return nil, err
 	}
 
-	return &TelegramBot{chatId: chatId, bot: bot}, nil
+	return &telegramBot{chatId: chatId, bot: bot}, nil
 }
 
-func (t *TelegramBot) Listen() {
+func (t *telegramBot) Listen() {
 	log.Println("Running Telegram bot...")
 	t.bot.Start()
 }
@@ -39,6 +39,16 @@ type notificationParams struct {
 	TransactionId   string
 	TransactionHref string
 	SubTransactions []notificationTransaction
+}
+
+func newNotificationParams(id string, fireflyBaseUrl string, transactions []notificationTransaction) *notificationParams {
+	uri := fireflyBaseUrl
+	if id != "" {
+		uri += "/transactions/show/" + id
+	} else {
+		id = "n/a"
+	}
+	return &notificationParams{id, uri, transactions}
 }
 
 type notificationTransaction struct {
@@ -104,7 +114,7 @@ func newNotificationTransaction(date string, sourceName string, destName string,
 	}
 }
 
-func (t *TelegramBot) notifyNewTransaction(params *notificationParams) error {
+func (t *telegramBot) notifyNewTransaction(params *notificationParams) error {
 	if len(params.SubTransactions) == 0 {
 		return nil
 	}
@@ -116,7 +126,7 @@ func (t *TelegramBot) notifyNewTransaction(params *notificationParams) error {
 	log.Println(">> Sending notification...")
 
 	_, err := t.bot.Send(
-		&tele.User{ID: t.chatId},
+		&tele.Chat{ID: t.chatId},
 		body.String(),
 		tele.ModeHTML,
 	)
