@@ -27,12 +27,25 @@ func NewBot(token string, chatId int64) (*telegramBot, error) {
 		return nil, err
 	}
 
-	return &telegramBot{chatId: chatId, bot: bot}, nil
+	telegramBot := &telegramBot{chatId: chatId, bot: bot}
+
+	telegramBot.bot.Handle("/start", telegramBot.handleStart)
+	return telegramBot, nil
 }
 
 func (t *telegramBot) Listen() {
 	log.Println("Running Telegram bot...")
 	t.bot.Start()
+}
+
+func (t *telegramBot) handleStart(c tele.Context) error {
+	var info string
+	if c.Chat().ID == t.chatId {
+		info = "Du bist autorisiert!"
+	} else {
+		info = "Du bist nicht autorisiert."
+	}
+	return c.Send(fmt.Sprintf("Hallo %s!\n%s", c.Chat().FirstName, info))
 }
 
 type notificationParams struct {
