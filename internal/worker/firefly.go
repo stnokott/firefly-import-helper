@@ -6,8 +6,10 @@ import (
 	"errors"
 	"firefly-iii-fix-ing/internal/structs"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"strconv"
 )
 
@@ -185,4 +187,25 @@ func (w *Worker) notifyFromWebhook(t *structs.WhTransactionRead) error {
 		)
 	}
 	return w.telegramBot.notifyNewTransaction(w.newNotificationParams(strconv.Itoa(t.Id), transactions))
+}
+
+func (w *Worker) request(method string, url string, params map[string]string, body io.Reader) (*http.Response, error) {
+	r, err := http.NewRequest(method, url, body)
+	if err != nil {
+		return nil, err
+	}
+	r.Header.Add("Authorization", "Bearer "+w.fireflyAccessToken)
+	if method == http.MethodPut || method == http.MethodPost {
+		r.Header.Add("Content-Type", "application/json")
+	}
+	r.Header.Add("Accept", "application/json")
+
+	if params != nil {
+		for k, v := range params {
+			r.URL.Query().Add(k, v)
+		}
+		r.URL.RawQuery = r.URL.String()
+	}
+
+	return http.DefaultClient.Do(r)
 }

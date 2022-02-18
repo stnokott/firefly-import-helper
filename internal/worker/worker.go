@@ -5,11 +5,12 @@ import (
 	"firefly-iii-fix-ing/internal/modules"
 	"firefly-iii-fix-ing/internal/structs"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"time"
 )
+
+const httpPort = 8080
 
 type Worker struct {
 	moduleHandler             *modules.ModuleHandler
@@ -21,7 +22,6 @@ type Worker struct {
 	fireflyAccessToken        string
 	fireflyBaseUrl            string
 	telegramBot               *TelegramBot
-	telegramChatId            int64
 }
 
 type TelegramOptions struct {
@@ -58,21 +58,8 @@ func NewWorker(fireflyAccessToken string, fireflyBaseUrl string, telegramOptions
 		fireflyAccessToken: fireflyAccessToken,
 		fireflyBaseUrl:     fireflyBaseUrl,
 		telegramBot:        bot,
-		telegramChatId:     telegramOptions.ChatId,
 	}, nil
 }
-
-func (w *Worker) createHttpServer() *http.Server {
-	handler := http.NewServeMux()
-	handler.HandleFunc("/", w.handleWebhook)
-	srv := &http.Server{
-		Addr:    fmt.Sprintf(":%d", port),
-		Handler: handler,
-	}
-	return srv
-}
-
-const port = 8080
 
 func (w *Worker) Listen() error {
 	log.Println("Ensuring webhook exists...")
@@ -86,7 +73,7 @@ func (w *Worker) Listen() error {
 	// start telegram bot
 	go w.telegramBot.Listen()
 
-	srv := w.createHttpServer()
+	srv := w.newHttpServer()
 
 	go func() {
 		time.Sleep(1 * time.Second) // give a little time for server to be up and running
@@ -102,13 +89,23 @@ func (w *Worker) Listen() error {
 	}()
 
 	// start webserver
-	log.Printf("Starting server on port %d...", port)
+	log.Printf("Starting server on port %d...", httpPort)
 	err = srv.ListenAndServe()
 	if err != nil && err != http.ErrServerClosed {
 		log.Println("HTTP server error:", err)
 	}
 
 	return nil
+}
+
+func (w *Worker) newHttpServer() *http.Server {
+	handler := http.NewServeMux()
+	handler.HandleFunc("/", w.handleWebhook)
+	srv := &http.Server{
+		Addr:    fmt.Sprintf(":%d", httpPort),
+		Handler: handler,
+	}
+	return srv
 }
 
 func (w *Worker) handleWebhook(_ http.ResponseWriter, r *http.Request) {
@@ -130,25 +127,4 @@ func (w *Worker) handleWebhook(_ http.ResponseWriter, r *http.Request) {
 		log.Println(">> WARNING: error updating transaction:", err)
 	}
 	log.Println("######### DONE ##########")
-}
-
-func (w *Worker) request(method string, url string, params map[string]string, body io.Reader) (*http.Response, error) {
-	r, err := http.NewRequest(method, url, body)
-	if err != nil {
-		return nil, err
-	}
-	r.Header.Add("Authorization", "Bearer "+w.fireflyAccessToken)
-	if method == http.MethodPut || method == http.MethodPost {
-		r.Header.Add("Content-Type", "application/json")
-	}
-	r.Header.Add("Accept", "application/json")
-
-	if params != nil {
-		for k, v := range params {
-			r.URL.Query().Add(k, v)
-		}
-		r.URL.RawQuery = r.URL.String()
-	}
-
-	return http.DefaultClient.Do(r)
 }
