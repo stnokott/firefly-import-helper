@@ -35,9 +35,6 @@ func NewWorker(fireflyAccessToken string, fireflyBaseUrl string, telegramOptions
 
 	w.fireflyApi = newFireflyApi(
 		fireflyBaseUrl,
-		fireflyBaseUrl+"/api/v1/transactions/%d",
-		fireflyBaseUrl+"/api/v1/accounts/%s",
-		fireflyBaseUrl+"/api/v1/webhooks",
 		fireflyAccessToken,
 		structs.WebhookAttributes{
 			Active:   true,
