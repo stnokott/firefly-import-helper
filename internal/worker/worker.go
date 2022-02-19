@@ -2,7 +2,6 @@ package worker
 
 import (
 	"firefly-iii-fix-ing/internal/modules"
-	"firefly-iii-fix-ing/internal/structs"
 	"log"
 )
 
@@ -27,31 +26,15 @@ func NewWorker(fireflyAccessToken string, fireflyBaseUrl string, telegramOptions
 		return nil, err
 	}
 
-	webhookUrl := fireflyBaseUrl + "/wh_fix_ing"
-
-	w := &Worker{
+	return &Worker{
 		telegramBot: bot,
-	}
-
-	w.fireflyApi = newFireflyApi(
-		fireflyBaseUrl,
-		fireflyAccessToken,
-		structs.WebhookAttributes{
-			Active:   true,
-			Title:    "Fix ING transaction descriptions from Importer",
-			Response: "RESPONSE_TRANSACTIONS",
-			Delivery: "DELIVERY_JSON",
-			Trigger:  "TRIGGER_STORE_TRANSACTION",
-			Url:      webhookUrl,
-		},
-		modules.NewModuleHandler(),
-		w,
-	)
-	return w, nil
-}
-
-func (w *Worker) SendNotification(params *notificationParams) error {
-	return w.telegramBot.notifyNewTransaction(params)
+		fireflyApi: newFireflyApi(
+			fireflyBaseUrl,
+			fireflyAccessToken,
+			modules.NewModuleHandler(),
+			bot,
+		),
+	}, nil
 }
 
 func (w *Worker) Listen() error {

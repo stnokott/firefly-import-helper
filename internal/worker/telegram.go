@@ -2,18 +2,20 @@ package worker
 
 import (
 	"bytes"
+	"firefly-iii-fix-ing/internal/structs"
 	"fmt"
 	tele "gopkg.in/telebot.v3"
 	"html/template"
 	"log"
+	"math"
 	"strconv"
 	"strings"
 	"time"
 )
 
 type telegramBot struct {
-	chatId int64
-	bot    *tele.Bot
+	targetChat *tele.Chat
+	bot        *tele.Bot
 }
 
 func NewBot(token string, chatId int64) (*telegramBot, error) {
@@ -27,58 +29,67 @@ func NewBot(token string, chatId int64) (*telegramBot, error) {
 		return nil, err
 	}
 
-	telegramBot := &telegramBot{chatId: chatId, bot: bot}
+	chat, err := bot.ChatByID(chatId)
+	if err != nil {
+		return nil, err
+	}
+
+	telegramBot := &telegramBot{
+		targetChat: chat,
+		bot:        bot,
+	}
 
 	telegramBot.bot.Handle("/start", telegramBot.handleStart)
 	return telegramBot, nil
 }
 
-func (t *telegramBot) Listen() {
+func (b *telegramBot) Listen() {
 	log.Println("Running Telegram bot...")
-	t.bot.Start()
+	b.bot.Start()
 }
 
-func (t *telegramBot) handleStart(c tele.Context) error {
-	var info string
-	if c.Chat().ID == t.chatId {
-		info = "Du bist autorisiert!"
-	} else {
-		info = "Du bist nicht autorisiert."
-	}
-	return c.Send(fmt.Sprintf("Hallo %s!\n%s", c.Chat().FirstName, info))
+func (b *telegramBot) handleStart(c tele.Context) error {
+	return c.Send(fmt.Sprintf("Hallo %s!\nDieser Bot ist eingerichtet für Nutzer "+
+		"<a href=\"tg://user?id=%d\">%d</a>.", c.Chat().FirstName, b.targetChat.ID, b.targetChat.ID), tele.ModeHTML)
 }
 
 type notificationParams struct {
 	TransactionId   string
 	TransactionHref string
-	SubTransactions []notificationTransaction
+	SubTransactions []transactionNotification
 }
 
-func newNotificationParams(id string, fireflyBaseUrl string, transactions []notificationTransaction) *notificationParams {
+type transactionNotification struct {
+	SourceName      string
+	DestinationName string
+	AmountStr       string
+	Description     string
+	DateStr         string
+	CategoryName    string
+}
+
+func newNotificationParams(id string, fireflyBaseUrl string, transactions []transactionNotification) *notificationParams {
 	uri := fireflyBaseUrl
 	if id != "" {
 		uri += "/transactions/show/" + id
 	} else {
 		id = "n/a"
 	}
-	return &notificationParams{id, uri, transactions}
-}
-
-type notificationTransaction struct {
-	SourceName      string
-	DestinationName string
-	AmountStr       string
-	Description     string
-	DateStr         string
+	return &notificationParams{
+		id,
+		uri,
+		transactions,
+	}
 }
 
 var notificationTemplate = template.Must(template.New("telegramNotification").Parse(`
 <b>💸 Neue Firefly-III-Transaktion 💸</b>
 <a href="{{.TransactionHref}}">Transaktion #{{.TransactionId}}</a>
 <tg-spoiler>{{range .SubTransactions}}
-	📆 <i>{{.DateStr}}</i>
 	✏️ {{.Description}}
-	⚖️ <i>{{.SourceName}}</i> ➜ <i>{{.DestinationName}}</i>
+	🏷️ {{.CategoryName}}
+	📆 {{.DateStr}}
+	⚖️ {{.SourceName}} ➜ {{.DestinationName}}
 	💶 <u><b>{{.AmountStr}}</b></u>
 {{end}}</tg-spoiler>`))
 
@@ -100,7 +111,70 @@ var months = []string{
 	"Dezember",
 }
 
-func newNotificationTransaction(date string, sourceName string, destName string, amount string, currencySymbol string, description string) *notificationTransaction {
+const buttonsPerRow = 3
+const buttonDataDone = "fertig"
+
+func (b *telegramBot) NotifyNewTransaction(t *structs.TransactionRead, fireflyBaseUrl string, categories []structs.CategoryRead) error {
+	if len(t.Attributes.Transactions) == 0 {
+		return nil
+	}
+
+	// assemble transactions
+	transactions := make([]transactionNotification, len(t.Attributes.Transactions))
+	for i, transaction := range t.Attributes.Transactions {
+		transactions[i] = *newTransactionNotification(
+			transaction.Date,
+			transaction.SourceName,
+			transaction.DestinationName,
+			transaction.Amount,
+			transaction.CurrencySymbol,
+			transaction.CategoryName,
+			transaction.Description,
+		)
+	}
+	params := newNotificationParams(t.Id, fireflyBaseUrl, transactions)
+
+	body := bytes.NewBufferString(``)
+	if err := notificationTemplate.Execute(body, params); err != nil {
+		return err
+	}
+
+	// assemble menu buttons
+	menu := tele.ReplyMarkup{}
+
+	numCategories := len(categories) + 1 // + 1 to add "Done"-Button
+
+	rows := make([]tele.Row, int(math.Ceil(float64(numCategories)/buttonsPerRow)))
+	j := 0
+	for i := 0; i < numCategories; i += buttonsPerRow {
+		end := i + buttonsPerRow
+		if end > numCategories {
+			end = numCategories
+		}
+
+		rowBtns := make([]tele.Btn, len(categories[i:end]))
+		for i, category := range categories[i:end] {
+			rowBtns[i] = menu.Data(category.Attributes.Name, t.Id+category.Id, t.Id, category.Id)
+		}
+		// add "done" button if at last iteration
+		if i+buttonsPerRow >= numCategories {
+			rowBtns[len(rowBtns)-1] = menu.Data("👍 Fertig", t.Id+buttonDataDone, buttonDataDone)
+		}
+		rows[j] = menu.Row(rowBtns...)
+		j++
+	}
+	menu.Inline(rows...)
+
+	_, err := b.bot.Send(
+		b.targetChat,
+		body.String(),
+		&menu,
+		tele.ModeHTML,
+	)
+	return err
+}
+
+func newTransactionNotification(date string, sourceName string, destName string, amount string, currencySymbol string, categoryName string, description string) *transactionNotification {
 	var dateFormatted string
 	dateParsed, err := time.Parse("2006-01-02T15:04:04-07:00", date)
 	if err == nil {
@@ -118,32 +192,14 @@ func newNotificationTransaction(date string, sourceName string, destName string,
 		log.Println("WARNING: could not parse amount to float:", err)
 		amountFormatted = "n/a"
 	}
-	return &notificationTransaction{
+	return &transactionNotification{
 		SourceName:      formatStr(sourceName, maxLenAccountName),
 		DestinationName: formatStr(destName, maxLenAccountName),
 		AmountStr:       amountFormatted,
 		Description:     formatStr(description, maxLenDescription),
 		DateStr:         dateFormatted,
+		CategoryName:    categoryName,
 	}
-}
-
-func (t *telegramBot) notifyNewTransaction(params *notificationParams) error {
-	if len(params.SubTransactions) == 0 {
-		return nil
-	}
-
-	body := bytes.NewBufferString(``)
-	if err := notificationTemplate.Execute(body, params); err != nil {
-		return err
-	}
-	log.Println(">> Sending notification...")
-
-	_, err := t.bot.Send(
-		&tele.Chat{ID: t.chatId},
-		body.String(),
-		tele.ModeHTML,
-	)
-	return err
 }
 
 func formatStr(s string, maxLen int) string {

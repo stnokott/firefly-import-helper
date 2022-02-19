@@ -14,10 +14,6 @@ type TransactionSplitUpdate struct {
 	CreditorId       string `json:"destination_iban"`
 }
 
-type TransactionSingle struct {
-	Data TransactionRead `json:"data"`
-}
-
 type TransactionRead struct {
 	Id         string `json:"id"`
 	Attributes struct {
@@ -28,6 +24,7 @@ type TransactionRead struct {
 			Description     string `json:"description"`
 			DestinationName string `json:"destination_name"`
 			SourceName      string `json:"source_name"`
+			CategoryName    string `json:"category_name"`
 			Date            string `json:"date"`
 		} `json:"transactions"`
 	} `json:"attributes"`
@@ -72,4 +69,11 @@ type WhUrlResult struct {
 	Exists      bool
 	NeedsUpdate bool
 	Wh          *WebhookRead
+}
+
+type CategoryRead struct {
+	Id         string `json:"id"`
+	Attributes struct {
+		Name string `json:"name"`
+	} `json:"attributes"`
 }
