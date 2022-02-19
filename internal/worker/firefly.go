@@ -194,22 +194,6 @@ func (f *fireflyApi) getWebhook() (*structs.WhUrlResult, error) {
 	}
 }
 
-func (f *fireflyApi) getCategories() ([]structs.CategoryRead, error) {
-	resp, err := f.request("GET", f.endpoints.categories, nil)
-	if err != nil {
-		return nil, err
-	}
-	var categoriesResp struct {
-		Data []structs.CategoryRead `json:"data"`
-	}
-	//goland:noinspection GoUnhandledErrorResult
-	defer resp.Body.Close()
-	if err := json.NewDecoder(resp.Body).Decode(&categoriesResp); err != nil {
-		return nil, err
-	}
-	return categoriesResp.Data, nil
-}
-
 func (f *fireflyApi) findWebhookByTitle() (*structs.WebhookRead, error) {
 	resp, err := f.request("GET", f.endpoints.webhooks, nil)
 	if err != nil {
@@ -235,23 +219,6 @@ func (f *fireflyApi) findWebhookByTitle() (*structs.WebhookRead, error) {
 	return nil, nil
 }
 
-func (f *fireflyApi) getTransaction(id int) (*structs.TransactionRead, error) {
-	endpoint := fmt.Sprintf("%s/%d", f.endpoints.transactions, id)
-	resp, err := f.request("GET", endpoint, nil)
-	if err != nil {
-		return nil, err
-	}
-	var respTransaction struct {
-		Data structs.TransactionRead `json:"data"`
-	}
-	//goland:noinspection GoUnhandledErrorResult
-	defer resp.Body.Close()
-	if err := json.NewDecoder(resp.Body).Decode(&respTransaction); err != nil {
-		return nil, err
-	}
-	return &respTransaction.Data, nil
-}
-
 func (f *fireflyApi) checkAndUpdateTransaction(t structs.WhTransactionRead) error {
 	var transactionSplitUpdates []structs.TransactionSplitUpdate
 	for _, transactionInner := range t.Transactions {
@@ -269,41 +236,24 @@ func (f *fireflyApi) checkAndUpdateTransaction(t structs.WhTransactionRead) erro
 	if len(transactionSplitUpdates) == 0 {
 		log.Println(">>>> No fix applied")
 		transaction, err := f.getTransaction(t.Id)
-		if err != nil {
-			return err
-		} else {
+		if err == nil {
 			resultTransaction = transaction
+		} else {
+			return err
 		}
 	} else {
-		endpoint := fmt.Sprintf("%s/%d", f.endpoints.transactions, t.Id)
+		// update transaction
 		updateObj := structs.TransactionUpdate{
 			ApplyRules:         true,
 			FireWebhooks:       false,
 			GroupTitle:         transactionSplitUpdates[0].Description,
 			TransactionUpdates: transactionSplitUpdates,
 		}
-		updateObjBytes, err := json.Marshal(updateObj)
+		updateResponse, err := f.UpdateTransaction(t.Id, &updateObj)
 		if err != nil {
 			return err
 		}
-		log.Println(">> Communicating with Firefly-III...")
-		resp, err := f.request("PUT", endpoint, bytes.NewBuffer(updateObjBytes))
-		if err != nil {
-			return err
-		} else if resp.StatusCode != http.StatusOK {
-			return errors.New(parseResponseError(resp))
-		}
-
-		var updateResponse struct {
-			Data structs.TransactionRead `json:"data"`
-		}
-		//goland:noinspection GoUnhandledErrorResult
-		defer resp.Body.Close()
-		respBytes, _ := io.ReadAll(resp.Body)
-		if err := json.Unmarshal(respBytes, &updateResponse); err != nil {
-			return errors.New(fmt.Sprintf("transactions update #%d: %s", t.Id, err))
-		}
-		resultTransaction = &updateResponse.Data
+		resultTransaction = updateResponse
 	}
 	categories, err := f.getCategories()
 	if err != nil {
@@ -318,6 +268,95 @@ func (f *fireflyApi) checkAndUpdateTransaction(t structs.WhTransactionRead) erro
 		return err
 	}
 	return nil
+}
+
+func (f *fireflyApi) getTransaction(id int) (*structs.TransactionRead, error) {
+	endpoint := fmt.Sprintf("%s/%d", f.endpoints.transactions, id)
+	resp, err := f.request("GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+	var respTransaction struct {
+		Data structs.TransactionRead `json:"data"`
+	}
+	//goland:noinspection GoUnhandledErrorResult
+	defer resp.Body.Close()
+	if err := json.NewDecoder(resp.Body).Decode(&respTransaction); err != nil {
+		return nil, err
+	}
+	return &respTransaction.Data, nil
+}
+
+func (f *fireflyApi) getCategories() ([]structs.CategoryRead, error) {
+	resp, err := f.request("GET", f.endpoints.categories, nil)
+	if err != nil {
+		return nil, err
+	}
+	var categoriesResp struct {
+		Data []structs.CategoryRead `json:"data"`
+	}
+	//goland:noinspection GoUnhandledErrorResult
+	defer resp.Body.Close()
+	if err := json.NewDecoder(resp.Body).Decode(&categoriesResp); err != nil {
+		return nil, err
+	}
+	return categoriesResp.Data, nil
+}
+
+func (f *fireflyApi) UpdateTransaction(id int, tu *structs.TransactionUpdate) (*structs.TransactionRead, error) {
+	endpoint := fmt.Sprintf("%s/%d", f.endpoints.transactions, id)
+
+	updateObjBytes, err := json.Marshal(tu)
+	if err != nil {
+		return nil, err
+	}
+	log.Println(">> Communicating with Firefly-III...")
+	resp, err := f.request("PUT", endpoint, bytes.NewBuffer(updateObjBytes))
+	if err != nil {
+		return nil, err
+	} else if resp.StatusCode != http.StatusOK {
+		return nil, errors.New(parseResponseError(resp))
+	}
+
+	var updateResponse struct {
+		Data structs.TransactionRead `json:"data"`
+	}
+	//goland:noinspection GoUnhandledErrorResult
+	defer resp.Body.Close()
+	respBytes, _ := io.ReadAll(resp.Body)
+	if err := json.Unmarshal(respBytes, &updateResponse); err != nil {
+		return nil, errors.New(fmt.Sprintf("transactions update #%d: %s", id, err))
+	}
+	return &updateResponse.Data, nil
+}
+
+func (f *fireflyApi) FireflyBaseUrl() string {
+	return f.fireflyBaseUrl
+}
+
+func (f *fireflyApi) SetTransactionCategory(id int, categoryName string) (*structs.TransactionRead, error) {
+	transaction, err := f.getTransaction(id)
+	if err != nil {
+		return nil, err
+	}
+	transactionUpdates := make([]structs.TransactionSplitUpdate, len(transaction.Attributes.Transactions))
+	for i, transactionSplit := range transaction.Attributes.Transactions {
+		journalId, err := strconv.ParseInt(transactionSplit.JournalId, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		transactionUpdates[i] = structs.TransactionSplitUpdate{
+			JournalId:    int(journalId),
+			CategoryName: categoryName,
+		}
+	}
+	updateObj := &structs.TransactionUpdate{
+		ApplyRules:         true,
+		FireWebhooks:       false,
+		GroupTitle:         transaction.Attributes.GroupTitle,
+		TransactionUpdates: transactionUpdates,
+	}
+	return f.UpdateTransaction(id, updateObj)
 }
 
 type responseError struct {

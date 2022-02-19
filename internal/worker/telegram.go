@@ -14,8 +14,14 @@ import (
 )
 
 type telegramBot struct {
-	targetChat *tele.Chat
-	bot        *tele.Bot
+	targetChat         *tele.Chat
+	bot                *tele.Bot
+	transactionUpdater transactionUpdater
+}
+
+type transactionUpdater interface {
+	SetTransactionCategory(id int, categoryName string) (*structs.TransactionRead, error)
+	FireflyBaseUrl() string
 }
 
 func NewBot(token string, chatId int64) (*telegramBot, error) {
@@ -39,7 +45,9 @@ func NewBot(token string, chatId int64) (*telegramBot, error) {
 		bot:        bot,
 	}
 
-	telegramBot.bot.Handle("/start", telegramBot.handleStart)
+	bot.Handle("/start", telegramBot.handleStart)
+	bot.Handle(tele.OnCallback, telegramBot.handleInlineQueries)
+
 	return telegramBot, nil
 }
 
@@ -51,6 +59,56 @@ func (b *telegramBot) Listen() {
 func (b *telegramBot) handleStart(c tele.Context) error {
 	return c.Send(fmt.Sprintf("Hallo %s!\nDieser Bot ist eingerichtet für Nutzer "+
 		"<a href=\"tg://user?id=%d\">%d</a>.", c.Chat().FirstName, b.targetChat.ID, b.targetChat.ID), tele.ModeHTML)
+}
+
+func (b *telegramBot) handleInlineQueries(c tele.Context) error {
+	log.Println("##### BEGIN CALLBACK ####")
+	defer func() {
+		log.Println("###### END CALLBACK #####")
+	}()
+	var responseMsg string
+	var editBody string
+
+	callbackData := strings.Split(c.Data(), "|")
+	callbackData = callbackData[1:]
+	targetTransactionId := callbackData[0]
+	if targetTransactionId != buttonDataDone {
+		// category button was pressed
+		if targetTransactionIdInt, err := strconv.ParseInt(targetTransactionId, 10, 64); err != nil {
+			// could not cast transaction id from data to int
+			responseMsg = fmt.Sprintf("Transaktions-ID %s ungültig!", targetTransactionId)
+		} else {
+			targetCategoryName := callbackData[1]
+			log.Println("Requested category change to", targetCategoryName)
+			if updatedTransaction, err := b.transactionUpdater.SetTransactionCategory(int(targetTransactionIdInt), targetCategoryName); err != nil {
+				responseMsg = "Update fehlgeschlagen: " + err.Error()
+			} else if len(updatedTransaction.Attributes.Transactions) == 0 {
+				responseMsg = "Update fehlgeschlagen: ungültiger Rückgabewert vom Server"
+			} else {
+				// success
+				responseMsg = "Kategorie gesetzt auf " + updatedTransaction.Attributes.Transactions[0].CategoryName
+				editBody, _ = b.transactionToMessageBody(updatedTransaction, b.transactionUpdater.FireflyBaseUrl())
+			}
+		}
+	} else {
+		// "Done"-Button pressed -> do nothing
+		log.Println("No option chosen")
+		responseMsg = ""
+	}
+	// remove inline buttons
+	var err error
+	if editBody != "" {
+		err = c.Edit(editBody, &tele.ReplyMarkup{}, tele.ModeHTML)
+	} else {
+		err = c.Edit(&tele.ReplyMarkup{})
+	}
+	if err != nil {
+		log.Println("WARNING: could not delete inline buttons:", err)
+	}
+	return c.Respond(&tele.CallbackResponse{
+		Text:      responseMsg,
+		ShowAlert: false,
+	})
 }
 
 type notificationParams struct {
@@ -114,11 +172,7 @@ var months = []string{
 const buttonsPerRow = 3
 const buttonDataDone = "fertig"
 
-func (b *telegramBot) NotifyNewTransaction(t *structs.TransactionRead, fireflyBaseUrl string, categories []structs.CategoryRead) error {
-	if len(t.Attributes.Transactions) == 0 {
-		return nil
-	}
-
+func (b *telegramBot) transactionToMessageBody(t *structs.TransactionRead, fireflyBaseUrl string) (string, error) {
 	// assemble transactions
 	transactions := make([]transactionNotification, len(t.Attributes.Transactions))
 	for i, transaction := range t.Attributes.Transactions {
@@ -136,7 +190,14 @@ func (b *telegramBot) NotifyNewTransaction(t *structs.TransactionRead, fireflyBa
 
 	body := bytes.NewBufferString(``)
 	if err := notificationTemplate.Execute(body, params); err != nil {
-		return err
+		return "", err
+	}
+	return body.String(), nil
+}
+
+func (b *telegramBot) NotifyNewTransaction(t *structs.TransactionRead, fireflyBaseUrl string, categories []structs.CategoryRead) error {
+	if len(t.Attributes.Transactions) == 0 {
+		return nil
 	}
 
 	// assemble menu buttons
@@ -154,7 +215,7 @@ func (b *telegramBot) NotifyNewTransaction(t *structs.TransactionRead, fireflyBa
 
 		rowBtns := make([]tele.Btn, len(categories[i:end]))
 		for i, category := range categories[i:end] {
-			rowBtns[i] = menu.Data(category.Attributes.Name, t.Id+category.Id, t.Id, category.Id)
+			rowBtns[i] = menu.Data(category.Attributes.Name, t.Id+category.Id, t.Id, category.Attributes.Name)
 		}
 		// add "done" button if at last iteration
 		if i+buttonsPerRow >= numCategories {
@@ -165,9 +226,14 @@ func (b *telegramBot) NotifyNewTransaction(t *structs.TransactionRead, fireflyBa
 	}
 	menu.Inline(rows...)
 
-	_, err := b.bot.Send(
+	notificationBody, err := b.transactionToMessageBody(t, fireflyBaseUrl)
+	if err != nil {
+		return err
+	}
+
+	_, err = b.bot.Send(
 		b.targetChat,
-		body.String(),
+		notificationBody,
 		&menu,
 		tele.ModeHTML,
 	)

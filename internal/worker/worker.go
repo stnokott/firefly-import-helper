@@ -26,14 +26,17 @@ func NewWorker(fireflyAccessToken string, fireflyBaseUrl string, telegramOptions
 		return nil, err
 	}
 
+	fireflyApi := newFireflyApi(
+		fireflyBaseUrl,
+		fireflyAccessToken,
+		modules.NewModuleHandler(),
+		bot,
+	)
+	bot.transactionUpdater = fireflyApi
+
 	return &Worker{
 		telegramBot: bot,
-		fireflyApi: newFireflyApi(
-			fireflyBaseUrl,
-			fireflyAccessToken,
-			modules.NewModuleHandler(),
-			bot,
-		),
+		fireflyApi:  fireflyApi,
 	}, nil
 }
 
