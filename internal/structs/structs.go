@@ -9,13 +9,10 @@ type TransactionUpdate struct {
 
 type TransactionSplitUpdate struct {
 	JournalId        int    `json:"transaction_journal_id"`
-	Description      string `json:"description"`
-	MandateReference string `json:"sepa_db"`
-	CreditorId       string `json:"destination_iban"`
-}
-
-type TransactionSingle struct {
-	Data TransactionRead `json:"data"`
+	Description      string `json:"description,omitempty"`
+	MandateReference string `json:"sepa_db,omitempty"`
+	CreditorId       string `json:"destination_iban,omitempty"`
+	CategoryName     string `json:"category_name,omitempty"`
 }
 
 type TransactionRead struct {
@@ -23,11 +20,13 @@ type TransactionRead struct {
 	Attributes struct {
 		GroupTitle   string `json:"group_title"`
 		Transactions []struct {
+			JournalId       string `json:"transaction_journal_id"`
 			Amount          string `json:"amount"`
 			CurrencySymbol  string `json:"currency_symbol"`
 			Description     string `json:"description"`
 			DestinationName string `json:"destination_name"`
 			SourceName      string `json:"source_name"`
+			CategoryName    string `json:"category_name"`
 			Date            string `json:"date"`
 		} `json:"transactions"`
 	} `json:"attributes"`
@@ -72,4 +71,11 @@ type WhUrlResult struct {
 	Exists      bool
 	NeedsUpdate bool
 	Wh          *WebhookRead
+}
+
+type CategoryRead struct {
+	Id         string `json:"id"`
+	Attributes struct {
+		Name string `json:"name"`
+	} `json:"attributes"`
 }
