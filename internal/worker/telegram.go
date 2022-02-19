@@ -219,7 +219,7 @@ func (b *telegramBot) NotifyNewTransaction(t *structs.TransactionRead, fireflyBa
 		}
 		// add "done" button if at last iteration
 		if i+buttonsPerRow >= numCategories {
-			rowBtns[len(rowBtns)-1] = menu.Data("👍 Fertig", t.Id+buttonDataDone, buttonDataDone)
+			rowBtns[len(rowBtns)-1] = menu.Data("👍 Passt", t.Id+buttonDataDone, buttonDataDone)
 		}
 		rows[j] = menu.Row(rowBtns...)
 		j++
