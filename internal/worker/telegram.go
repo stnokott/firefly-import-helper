@@ -105,6 +105,7 @@ func (b *telegramBot) handleInlineQueries(c tele.Context) error {
 	if err != nil {
 		log.Println("WARNING: could not delete inline buttons:", err)
 	}
+	log.Printf(">> Sending response message: '%s'", responseMsg)
 	return c.Respond(&tele.CallbackResponse{
 		Text:      responseMsg,
 		ShowAlert: false,
