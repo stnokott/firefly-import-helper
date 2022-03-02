@@ -207,11 +207,15 @@ func (b *telegramBot) NotifyNewTransaction(t *structs.TransactionRead, fireflyBa
 	numCategories := len(categories) + 1 // + 1 to add "Done"-Button
 
 	rows := make([]tele.Row, int(math.Ceil(float64(numCategories)/buttonsPerRow)))
-	j := 0
+	rowIndex := 0
 	for i := 0; i < numCategories; i += buttonsPerRow {
 		end := i + buttonsPerRow
 		if end > numCategories {
 			end = numCategories
+		}
+		isLastRow := i+buttonsPerRow >= numCategories
+		if isLastRow {
+			end-- // to prevent out of bounds error when accessing categories slice
 		}
 
 		rowBtns := make([]tele.Btn, len(categories[i:end]))
@@ -219,11 +223,11 @@ func (b *telegramBot) NotifyNewTransaction(t *structs.TransactionRead, fireflyBa
 			rowBtns[i] = menu.Data(category.Attributes.Name, t.Id+category.Id, t.Id, category.Attributes.Name)
 		}
 		// add "done" button if at last iteration
-		if i+buttonsPerRow >= numCategories {
+		if isLastRow {
 			rowBtns[len(rowBtns)-1] = menu.Data("👍 Passt", t.Id+buttonDataDone, buttonDataDone)
 		}
-		rows[j] = menu.Row(rowBtns...)
-		j++
+		rows[rowIndex] = menu.Row(rowBtns...)
+		rowIndex++
 	}
 	menu.Inline(rows...)
 
