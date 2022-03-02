@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-const port = 8080
+const port = 8822
 const webhookPath = "/wh_fix_ing"
 const pathAccounts = "/api/v1/accounts"
 const pathTransaction = "/api/v1/transactions"
