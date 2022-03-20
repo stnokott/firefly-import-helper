@@ -98,7 +98,7 @@ func (w *Worker) Autoimport() {
 			}
 		}
 	}
-	log.Println(">> Done, next", w.getNextAutoimportAsString())
+	log.Println(">> Done, next at", w.getNextAutoimportAsString())
 }
 
 func (w *Worker) getNextAutoimportAsString() string {
@@ -122,7 +122,7 @@ func (w *Worker) Listen() error {
 	// start telegram bot
 	go w.telegramBot.Listen()
 	w.scheduler.StartAsync()
-	log.Println(">> Next autoimport:", w.getNextAutoimportAsString())
+	log.Println("Next autoimport scheduled for", w.getNextAutoimportAsString())
 	log.Println()
 	return w.fireflyApi.Listen()
 }
