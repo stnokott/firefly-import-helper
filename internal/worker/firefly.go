@@ -37,14 +37,14 @@ type fireflyApi struct {
 	fireflyAccessToken string
 	targetWebhook      structs.WebhookAttributes
 	moduleHandler      *modules.ModuleHandler
-	notifManager       notificationManager
+	notifManager       transactioNotifier
 }
 
-type notificationManager interface {
+type transactioNotifier interface {
 	NotifyNewTransaction(t *structs.TransactionRead, fireflyBaseUrl string, categories []structs.CategoryRead) error
 }
 
-func newFireflyApi(fireflyBaseUrl string, fireflyAccessToken string, moduleHandler *modules.ModuleHandler, notifManager notificationManager) *fireflyApi {
+func newFireflyApi(fireflyBaseUrl string, fireflyAccessToken string, moduleHandler *modules.ModuleHandler, notifManager transactioNotifier) *fireflyApi {
 	f := fireflyApi{
 		webhookUrl:     fireflyBaseUrl + webhookPath,
 		fireflyBaseUrl: fireflyBaseUrl,
@@ -83,7 +83,8 @@ func (f *fireflyApi) Listen() error {
 
 	go func() {
 		time.Sleep(1 * time.Second) // give a little time for httpServer to be up and running
-		resp, err := http.Get(f.webhookUrl)
+		client := http.Client{Timeout: 10 * time.Second}
+		resp, err := client.Get(f.webhookUrl)
 		//goland:noinspection GoUnhandledErrorResult
 		if err != nil {
 			log.Fatalln("Error validating httpServer connection:", err)

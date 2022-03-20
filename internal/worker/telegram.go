@@ -273,6 +273,17 @@ func newTransactionNotification(date string, sourceName string, destName string,
 	}
 }
 
+func (b *telegramBot) NotifyError(err error) error {
+	body := fmt.Sprintf("<b>❗️ Firefly-III-Autoimporter Fehler ❗️</b>\n\n<i>%s</i>", err)
+
+	_, err = b.bot.Send(
+		b.targetChat,
+		body,
+		tele.ModeHTML,
+	)
+	return err
+}
+
 func formatStr(s string, maxLen int) string {
 	if len(s) > maxLen {
 		s = s[:maxLen-3] + "..."
