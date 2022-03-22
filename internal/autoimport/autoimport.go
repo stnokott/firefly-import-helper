@@ -103,9 +103,9 @@ type configJson struct {
 	Rules                       bool              `json:"rules"`
 	SkipForm                    bool              `json:"skip_form"`
 	AddImportTag                bool              `json:"add_import_tag"`
-	Roles                       []interface{}     `json:"roles"`
-	DoMapping                   []interface{}     `json:"do_mapping"`
-	Mapping                     []interface{}     `json:"mapping"`
+	Roles                       []any             `json:"roles"`
+	DoMapping                   []any             `json:"do_mapping"`
+	Mapping                     []any             `json:"mapping"`
 	DuplicateDetectionMethod    string            `json:"duplicate_detection_method"`
 	IgnoreDuplicateLines        bool              `json:"ignore_duplicate_lines"`
 	IgnoreDuplicateTransactions bool              `json:"ignore_duplicate_transactions"`
