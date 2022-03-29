@@ -1,15 +1,14 @@
 FROM golang:1.18 as build
 
-WORKDIR /usr/src/app
+WORKDIR /usr/src/firefly-import-helper
 
-COPY go.mod go.sum ./
+COPY . ./
 RUN go mod download && go mod verify
 
-COPY . .
-RUN go build -v -o /app ./main.go
-
+RUN CGO_ENABLED=0 GOOS=linux go build -v -o app .
 
 FROM alpine:latest
 EXPOSE 8080
-COPY --from=build /app /usr/local/bin/app
-CMD ["app"]
+WORKDIR /root/
+COPY --from=0 /usr/src/firefly-import-helper/app ./
+CMD ["./app"]
