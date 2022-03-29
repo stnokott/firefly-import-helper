@@ -9,9 +9,9 @@ type TransactionUpdate struct {
 
 type TransactionSplitUpdate struct {
 	JournalId        int    `json:"transaction_journal_id"`
-	Description      string `json:"description,omitempty"`
-	MandateReference string `json:"sepa_db,omitempty"`
-	CreditorId       string `json:"destination_iban,omitempty"`
+	Description      string `json:"description"`
+	MandateReference string `json:"sepa_db"`
+	CreditorId       string `json:"destination_iban"`
 	CategoryName     string `json:"category_name,omitempty"`
 }
 
