@@ -102,7 +102,11 @@ func (m *moduleIngDescriptionFormat) process(s *structs.TransactionSplitUpdate) 
 		description := matches[2]
 		if description == "" {
 			// revert if empty
-			description = s.Description
+			if s.Description != "" {
+				description = s.Description
+			} else {
+				description = "n/a"
+			}
 		}
 		return &structs.TransactionSplitUpdate{
 			MandateReference: matches[0],
