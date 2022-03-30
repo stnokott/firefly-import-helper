@@ -40,3 +40,5 @@ dockers:
   - image_templates:
       - 'ghcr.io/stnokott/{{ .ProjectName }}:latest'
       - 'ghcr.io/stnokott/{{ .ProjectName }}:{{ .Tag }}'
+env_files:
+  github_token: ~/.config/goreleaser/github_token
