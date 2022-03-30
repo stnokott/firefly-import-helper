@@ -5,7 +5,6 @@ VERSION=$(git describe --tags | awk "{split(\$0,a,\"-\"); print a[1];}")
 echo -e "package util\n\nconst Version = \"$VERSION\"" > internal/util/version.go
 
 git add internal/util/version.go
-git diff-index --quiet HEAD || git commit -m "change version to $VERSION"
 
 git tag -d "$VERSION"
 git tag -a "$VERSION" -m "$VERSION"
