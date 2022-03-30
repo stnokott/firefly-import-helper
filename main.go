@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"firefly-iii-fix-ing/internal/util"
 	"firefly-iii-fix-ing/internal/worker"
 	"fmt"
 	"log"
@@ -58,6 +59,11 @@ func main() {
 		AccessToken: envMap[envTelegramToken],
 		ChatId:      chatIdInt,
 	}
+	version, err := util.Version()
+	if err != nil {
+		log.Fatalln("could not determine version from file")
+	}
+	log.Printf("Running v%s", version)
 	log.Println("#########################")
 	log.Println("###       SETUP       ###")
 	log.Println("#########################")

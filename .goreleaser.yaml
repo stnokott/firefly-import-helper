@@ -2,9 +2,8 @@
 # Make sure to check the documentation at https://goreleaser.com
 before:
   hooks:
-    # You may remove this if you don't use go modules.
+    - cmd /c "Echo {{ .Version }} > VERSION"
     - go mod tidy
-    # you may remove this if you don't need go generate
     - go generate ./...
 builds:
   - env:
@@ -34,3 +33,5 @@ release:
     owner: stnokott
     name: firefly-import-helper
   mode: append
+env_files:
+  github_token: ~/.config/goreleaser/github_token
