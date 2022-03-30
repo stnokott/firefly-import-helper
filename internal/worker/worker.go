@@ -122,6 +122,13 @@ func (w *Worker) Listen() error {
 	// start telegram bot
 	go w.telegramBot.Listen()
 	w.scheduler.StartAsync()
+
+	// run immediately if not schedule in next 3 minutes
+	if _, nextRun := w.scheduler.NextRun(); nextRun.Sub(time.Now()).Minutes() >= 3 {
+		log.Println("Running autoimport now")
+		w.Autoimport()
+	}
+
 	log.Println("Next autoimport scheduled for", w.getNextAutoimportAsString())
 	log.Println()
 	return w.fireflyApi.Listen()
