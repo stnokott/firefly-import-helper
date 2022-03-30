@@ -6,7 +6,7 @@ echo -e "package util\n\nconst Version = \"$VERSION\"" > internal/util/version.g
 
 git add internal/util/version.go
 git commit -m "change version number to $VERSION"
-
-touch test.txt
+git tag -d "$VERSION"
+git tag -a "$VERSION" -m "$VERSION"
 
 exit 0
