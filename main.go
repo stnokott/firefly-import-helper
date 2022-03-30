@@ -59,7 +59,7 @@ func main() {
 		AccessToken: envMap[envTelegramToken],
 		ChatId:      chatIdInt,
 	}
-	log.Printf("Running v%s", util.Version)
+	log.Println("Running", util.Version)
 	log.Println("#########################")
 	log.Println("###       SETUP       ###")
 	log.Println("#########################")
