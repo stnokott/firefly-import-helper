@@ -125,8 +125,10 @@ func (w *Worker) Listen() error {
 
 	// run immediately if not schedule in next 3 minutes
 	if _, nextRun := w.scheduler.NextRun(); nextRun.Sub(time.Now()).Minutes() >= 3 {
-		log.Println("Running autoimport now")
-		w.Autoimport()
+		go func() {
+			time.Sleep(10 * time.Second)
+			w.Autoimport()
+		}()
 	}
 
 	log.Println("Next autoimport scheduled for", w.getNextAutoimportAsString())
