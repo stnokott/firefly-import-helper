@@ -35,10 +35,11 @@ release:
     name: firefly-import-helper
   mode: append
   header: |
-    ## New release v{{ .Major }}.{{ .Minor }}.{{ .Patch }}
+    ## New release {{ .Version }}
 dockers:
   - image_templates:
       - 'ghcr.io/stnokott/{{ .ProjectName }}:latest'
-      - 'ghcr.io/stnokott/{{ .ProjectName }}:{{ .Tag }}'
+      - 'ghcr.io/stnokott/{{ .ProjectName }}:{{ .Version }}'
+    use: buildx
 env_files:
   github_token: ~/.config/goreleaser/github_token
