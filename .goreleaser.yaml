@@ -2,8 +2,6 @@
 # Make sure to check the documentation at https://goreleaser.com
 before:
   hooks:
-    - >
-      powershell -command '$code = "package util`n`nconst Version = `"{{ .Version }}`""; $code | Out-File {{ abs "./internal/util/version.go" }} -encoding ASCII'
     - go mod tidy
     - go generate ./...
 builds:
