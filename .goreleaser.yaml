@@ -34,5 +34,3 @@ release:
     owner: stnokott
     name: firefly-import-helper
   mode: append
-  header: |
-    ## New release {{ .Version }}
