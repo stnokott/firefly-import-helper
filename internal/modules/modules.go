@@ -98,19 +98,13 @@ func (m *moduleIngDescriptionFormat) process(s *structs.TransactionSplitUpdate) 
 	if matches == nil {
 		return nil, nil
 	} else {
-		matches = matches[1:] // remove first entry containing the whole match
-		description := matches[2]
+		description := matches[3]
 		if description == "" {
-			// revert if empty
-			if s.Description != "" {
-				description = s.Description
-			} else {
-				description = "n/a"
-			}
+			description = "n/a"
 		}
 		return &structs.TransactionSplitUpdate{
-			MandateReference: matches[0],
-			CreditorId:       matches[1],
+			MandateReference: matches[1],
+			CreditorId:       matches[2],
 			Description:      description,
 		}, nil
 	}
