@@ -1,7 +1,6 @@
 package worker
 
 import (
-	"errors"
 	"firefly-iii-fix-ing/internal/autoimport"
 	"firefly-iii-fix-ing/internal/modules"
 	"fmt"
@@ -105,7 +104,7 @@ func (w *Worker) Autoimport() {
 		log.Println(">>", filepath.Base(jsonPath))
 		if err := w.autoimporter.Import(jsonPath); err != nil {
 			log.Println(">> got error:", err)
-			err := errors.New(fmt.Sprintf("could not autoimport config %s: %s", filepath.Base(jsonPath), err))
+			err := fmt.Errorf("could not autoimport config %s: %s", filepath.Base(jsonPath), err)
 			if errInner := w.telegramBot.NotifyError(err); errInner != nil {
 				log.Println("error sending notification:", errInner)
 				log.Println("initial error:", err)
@@ -163,7 +162,7 @@ func (w *Worker) Listen() error {
 	w.scheduler.StartAsync()
 
 	// run immediately if not schedule in next 3 minutes
-	if _, nextRun := w.scheduler.NextRun(); nextRun.Sub(time.Now()).Minutes() >= 3 {
+	if _, nextRun := w.scheduler.NextRun(); time.Until(nextRun).Minutes() >= 3 {
 		go func() {
 			time.Sleep(10 * time.Second)
 			w.Autoimport()

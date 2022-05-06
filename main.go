@@ -1,10 +1,8 @@
 package main
 
 import (
-	"errors"
 	"firefly-iii-fix-ing/internal/util"
 	"firefly-iii-fix-ing/internal/worker"
-	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -49,7 +47,7 @@ func main() {
 
 	autoImporterPortInt, err := strconv.ParseInt(envMap[envAutoimporterPort], 10, 64)
 	if err != nil {
-		log.Fatalln(errors.New(fmt.Sprintf("could not parse %s = %s as int", envAutoimporterPort, envMap[envAutoimporterPort])))
+		log.Fatalf("could not parse %s = %s as int", envAutoimporterPort, envMap[envAutoimporterPort])
 	}
 	autoImportOptions := worker.AutoimportOptions{
 		Url:             envMap[envAutoimporterUrl],
@@ -61,7 +59,7 @@ func main() {
 
 	chatIdInt, err := strconv.ParseInt(envMap[envTelegramChatId], 10, 64)
 	if err != nil {
-		log.Fatalln(errors.New(fmt.Sprintf("could not parse %s = %s as int", envTelegramChatId, envMap[envTelegramChatId])))
+		log.Fatalf("could not parse %s = %s as int", envTelegramChatId, envMap[envTelegramChatId])
 	}
 	telegramOptions := worker.TelegramOptions{
 		AccessToken: envMap[envTelegramToken],
