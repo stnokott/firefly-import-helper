@@ -1,6 +1,0 @@
-#!/bin/sh
-
-VERSION=$(git describe --tags | awk "{split(\$0,a,\"-\"); print a[1];}")
-
-git tag -d "$VERSION"
-git tag -a "$VERSION" -m "$VERSION"

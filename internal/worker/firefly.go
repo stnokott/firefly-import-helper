@@ -326,7 +326,7 @@ func (f *fireflyApi) UpdateTransaction(id int, tu *structs.TransactionUpdate) (*
 	defer resp.Body.Close()
 	respBytes, _ := io.ReadAll(resp.Body)
 	if err := json.Unmarshal(respBytes, &updateResponse); err != nil {
-		return nil, errors.New(fmt.Sprintf("transactions update #%d: %s", id, err))
+		return nil, fmt.Errorf("transactions update #%d: %s", id, err)
 	}
 	return &updateResponse.Data, nil
 }
