@@ -87,9 +87,7 @@ func NewWorker(fireflyAccessToken string, fireflyBaseUrl string, autoimportOptio
 
 func (w *Worker) Autoimport() {
 	log.Println("Running autoimport...")
-	if w.healthchecksUrl != "" {
-		w.pingHealthchecks(healthchecksStart)
-	}
+	w.pingHealthchecks(healthchecksStart)
 
 	filepaths, err := w.autoimporter.GetJsonFilePaths()
 	if err != nil {
@@ -125,17 +123,19 @@ const (
 )
 
 func (w *Worker) pingHealthchecks(type_ healthchecksType) {
-	healthchecksUrl := w.healthchecksUrl
-	switch type_ {
-	case healthchecksStart:
-		healthchecksUrl += "/start"
-	case healthchecksFailed:
-		healthchecksUrl += "/fail"
-	}
-	fmt.Printf("Pinging %s...", healthchecksUrl)
-	_, err := w.httpClient.Head(healthchecksUrl)
-	if err != nil {
-		log.Println("WARNING: could not ping healthchecks:", err)
+	if w.healthchecksUrl != "" {
+		healthchecksUrl := w.healthchecksUrl
+		switch type_ {
+		case healthchecksStart:
+			healthchecksUrl += "/start"
+		case healthchecksFailed:
+			healthchecksUrl += "/fail"
+		}
+		fmt.Printf("Pinging %s...", healthchecksUrl)
+		_, err := w.httpClient.Head(healthchecksUrl)
+		if err != nil {
+			log.Println("WARNING: could not ping healthchecks:", err)
+		}
 	}
 }
 
