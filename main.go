@@ -8,6 +8,8 @@ import (
 	"log"
 	"os"
 	"strconv"
+
+	"golang.org/x/exp/slices"
 )
 
 const envBaseUrl = "FIREFLY_HTTPS_URL"
@@ -18,6 +20,7 @@ const envAutoimporterSecret = "AUTOIMPORTER_SECRET"
 const envAutoimporterSchedule = "AUTOIMPORTER_CRON_SCHEDULE"
 const envTelegramToken = "TELEGRAM_ACCESS_TOKEN"
 const envTelegramChatId = "TELEGRAM_CHAT_ID"
+const envHealthchecksUrl = "HEALTHCHECKS_URL"
 
 func main() {
 	envMap := map[string]string{
@@ -29,12 +32,16 @@ func main() {
 		envAutoimporterPort:     "",
 		envAutoimporterSecret:   "",
 		envAutoimporterSchedule: "",
+		envHealthchecksUrl:      "",
+	}
+	envOptionals := []string{
+		envHealthchecksUrl,
 	}
 
 	for envKey := range envMap {
 		envValue := os.Getenv(envKey)
-		if envValue == "" {
-			log.Fatalln("environment variable", envKey, "not set!")
+		if envValue == "" && !slices.Contains(envOptionals, envHealthchecksUrl) {
+			log.Fatalln("required environment variable", envKey, "not set!")
 		} else {
 			envMap[envKey] = envValue
 		}
@@ -45,10 +52,11 @@ func main() {
 		log.Fatalln(errors.New(fmt.Sprintf("could not parse %s = %s as int", envAutoimporterPort, envMap[envAutoimporterPort])))
 	}
 	autoImportOptions := worker.AutoimportOptions{
-		Url:          envMap[envAutoimporterUrl],
-		Port:         uint(autoImporterPortInt),
-		Secret:       envMap[envAutoimporterSecret],
-		CronSchedule: envMap[envAutoimporterSchedule],
+		Url:             envMap[envAutoimporterUrl],
+		Port:            uint(autoImporterPortInt),
+		Secret:          envMap[envAutoimporterSecret],
+		CronSchedule:    envMap[envAutoimporterSchedule],
+		HealthchecksUrl: envMap[envHealthchecksUrl],
 	}
 
 	chatIdInt, err := strconv.ParseInt(envMap[envTelegramChatId], 10, 64)

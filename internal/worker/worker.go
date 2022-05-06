@@ -5,24 +5,29 @@ import (
 	"firefly-iii-fix-ing/internal/autoimport"
 	"firefly-iii-fix-ing/internal/modules"
 	"fmt"
-	"github.com/go-co-op/gocron"
 	"log"
+	"net/http"
 	"path/filepath"
 	"time"
+
+	"github.com/go-co-op/gocron"
 )
 
 type Worker struct {
-	fireflyApi   *fireflyApi
-	telegramBot  *telegramBot
-	autoimporter *autoimport.Manager
-	scheduler    *gocron.Scheduler
+	fireflyApi      *fireflyApi
+	telegramBot     *telegramBot
+	autoimporter    *autoimport.Manager
+	scheduler       *gocron.Scheduler
+	healthchecksUrl string
+	httpClient      *http.Client
 }
 
 type AutoimportOptions struct {
-	Url          string
-	Port         uint
-	Secret       string
-	CronSchedule string
+	Url             string
+	Port            uint
+	Secret          string
+	CronSchedule    string
+	HealthchecksUrl string
 }
 
 type TelegramOptions struct {
@@ -59,10 +64,14 @@ func NewWorker(fireflyAccessToken string, fireflyBaseUrl string, autoimportOptio
 	scheduler := gocron.NewScheduler(time.Local)
 
 	w := &Worker{
-		telegramBot:  bot,
-		fireflyApi:   fireflyApi,
-		autoimporter: autoimporter,
-		scheduler:    scheduler,
+		telegramBot:     bot,
+		fireflyApi:      fireflyApi,
+		autoimporter:    autoimporter,
+		scheduler:       scheduler,
+		healthchecksUrl: autoimportOptions.HealthchecksUrl,
+		httpClient: &http.Client{
+			Timeout: 10 * time.Second,
+		},
 	}
 
 	log.Println("Setting up autoimport...")
@@ -79,11 +88,16 @@ func NewWorker(fireflyAccessToken string, fireflyBaseUrl string, autoimportOptio
 
 func (w *Worker) Autoimport() {
 	log.Println("Running autoimport...")
+	if w.healthchecksUrl != "" {
+		w.pingHealthchecks(healthchecksStart)
+	}
+
 	filepaths, err := w.autoimporter.GetJsonFilePaths()
 	if err != nil {
 		if errInner := w.telegramBot.NotifyError(err); errInner != nil {
 			log.Println("error sending notification:", errInner)
 			log.Println("initial error:", err)
+			w.pingHealthchecks(healthchecksFailed)
 			return
 		}
 	}
@@ -95,10 +109,35 @@ func (w *Worker) Autoimport() {
 			if errInner := w.telegramBot.NotifyError(err); errInner != nil {
 				log.Println("error sending notification:", errInner)
 				log.Println("initial error:", err)
+				w.pingHealthchecks(healthchecksFailed)
 			}
 		}
 	}
+	w.pingHealthchecks(healthchecksSuccess)
 	log.Println(">> Done, next at", w.getNextAutoimportAsString())
+}
+
+type healthchecksType uint8
+
+const (
+	healthchecksStart healthchecksType = iota
+	healthchecksSuccess
+	healthchecksFailed
+)
+
+func (w *Worker) pingHealthchecks(type_ healthchecksType) {
+	healthchecksUrl := w.healthchecksUrl
+	switch type_ {
+	case healthchecksStart:
+		healthchecksUrl += "/start"
+	case healthchecksFailed:
+		healthchecksUrl += "/fail"
+	}
+	fmt.Printf("Pinging %s...", healthchecksUrl)
+	_, err := w.httpClient.Head(healthchecksUrl)
+	if err != nil {
+		log.Println("WARNING: could not ping healthchecks:", err)
+	}
 }
 
 func (w *Worker) getNextAutoimportAsString() string {
