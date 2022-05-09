@@ -1,4 +1,6 @@
-FROM golang:1.18 as build
+FROM golang:1.18.1-alpine as build
+
+RUN apk update && apk add git
 
 WORKDIR /usr/src/firefly-import-helper
 
