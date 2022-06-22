@@ -11,7 +11,6 @@ import (
 	"log"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -361,33 +360,21 @@ func (f *fireflyApi) SetTransactionCategory(id int, categoryName string) (*struc
 }
 
 type responseError struct {
-	Message   string              `json:"message"`
-	Errors    []map[string]string `json:"errors"`
-	Exception string              `json:"exception"`
+	Message string `json:"message"`
 }
 
 func parseResponseError(r *http.Response) string {
 	var responseError responseError
-	//goland:noinspection GoUnhandledErrorResult
+
 	defer r.Body.Close()
 	respBytes, _ := io.ReadAll(r.Body)
 	if err := json.Unmarshal(respBytes, &responseError); err != nil {
-		return "Unknown error (could not parse error message)"
+		return fmt.Sprintf("%s ('%s')", err, string(respBytes))
 	}
-	if len(responseError.Errors) > 0 {
-		var errs []string
-		for _, errMap := range responseError.Errors {
-			for _, v := range errMap {
-				errs = append(errs, v)
-			}
-		}
-		return strings.Join(errs, ", ")
-	} else if responseError.Message != "" {
+	if responseError.Message != "" {
 		return responseError.Message
-	} else if responseError.Exception != "" {
-		return responseError.Exception
 	} else {
-		return "Unknown error (unknown fields present in error message)"
+		return fmt.Sprintf("Unknown error ('%s')", string(respBytes))
 	}
 }
 
