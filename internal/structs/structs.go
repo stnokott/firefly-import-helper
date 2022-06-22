@@ -3,7 +3,7 @@ package structs
 type TransactionUpdate struct {
 	ApplyRules         bool                     `json:"apply_rules"`
 	FireWebhooks       bool                     `json:"fire_webhooks"`
-	GroupTitle         string                   `json:"group_title"`
+	GroupTitle         string                   `json:"group_title,omitempty"`
 	TransactionUpdates []TransactionSplitUpdate `json:"transactions"`
 }
 
