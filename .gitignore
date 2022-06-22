@@ -1,3 +1,4 @@
+.env-docker
 remote-targets.xml
 
 # Binaries for programs and plugins

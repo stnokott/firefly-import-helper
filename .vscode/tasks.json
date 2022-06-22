@@ -1,0 +1,17 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build Docker image",
+            "type": "shell",
+            "command": "docker build -t fireflyimporthelper:latest ."
+        },
+        {
+            "label": "Run Docker container",
+            "type": "shell",
+            "command": "docker run --rm --name firefly-import-helper --env-file ${workspaceFolder}/.env-docker -p 8822:8822/tcp -v C:/Users/nftra/Downloads/firefly-iii-autoimport:/configs fireflyimporthelper:latest"
+        }
+    ]
+}
