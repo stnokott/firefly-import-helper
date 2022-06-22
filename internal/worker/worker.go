@@ -92,8 +92,6 @@ func (w *Worker) Autoimport() {
 	filepaths, err := w.autoimporter.GetJsonFilePaths()
 	if err != nil {
 		if errInner := w.telegramBot.NotifyError(err); errInner != nil {
-			log.Println("error sending notification:", errInner)
-			log.Println("initial error:", err)
 			w.pingHealthchecks(healthchecksFailed)
 			return
 		}
@@ -131,7 +129,7 @@ func (w *Worker) pingHealthchecks(type_ healthchecksType) {
 		case healthchecksFailed:
 			healthchecksUrl += "/fail"
 		}
-		fmt.Printf("Pinging %s...", healthchecksUrl)
+		log.Printf("Pinging %s...", healthchecksUrl)
 		_, err := w.httpClient.Head(healthchecksUrl)
 		if err != nil {
 			log.Println("WARNING: could not ping healthchecks:", err)

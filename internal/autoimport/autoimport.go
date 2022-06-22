@@ -89,6 +89,10 @@ func (m *Manager) GetJsonFilePaths() ([]string, error) {
 			filepaths = append(filepaths, fullPath)
 		}
 	}
+	if len(filepaths) == 0 {
+		return nil, fmt.Errorf("did not detect any configuration files, please check %s folder", jsonDir)
+	}
+
 	return filepaths, nil
 }
 

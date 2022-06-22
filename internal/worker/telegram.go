@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"firefly-iii-fix-ing/internal/structs"
 	"fmt"
-	tele "gopkg.in/telebot.v3"
 	"html/template"
 	"log"
 	"math"
 	"strconv"
 	"strings"
 	"time"
+
+	tele "gopkg.in/telebot.v3"
 )
 
 type telegramBot struct {
@@ -204,31 +205,25 @@ func (b *telegramBot) NotifyNewTransaction(t *structs.TransactionRead, fireflyBa
 	// assemble menu buttons
 	menu := tele.ReplyMarkup{}
 
-	numCategories := len(categories) + 1 // + 1 to add "Done"-Button
+	numCategories := len(categories)
 
-	rows := make([]tele.Row, int(math.Ceil(float64(numCategories)/buttonsPerRow)))
-	rowIndex := 0
-	for i := 0; i < numCategories; i += buttonsPerRow {
-		end := i + buttonsPerRow
-		if end > numCategories {
-			end = numCategories
-		}
-		isLastRow := i+buttonsPerRow >= numCategories
-		if isLastRow {
-			end-- // to prevent out of bounds error when accessing categories slice
-		}
+	rows := make([]tele.Row, int(math.Ceil(float64(numCategories)/buttonsPerRow))+1) // + 1 to add row with "Done"-button
+	// insert one button for each category
+	for rowIndex := 0; rowIndex < len(rows)-1; rowIndex++ { // -1 for "Done"-button
+		categoriesFirstIndex := rowIndex * buttonsPerRow
+		categoriesLastIndex := int(math.Min(float64(categoriesFirstIndex+buttonsPerRow), float64(len(categories)-1)))
+		categoriesThisRow := categories[categoriesFirstIndex:categoriesLastIndex]
 
-		rowBtns := make([]tele.Btn, len(categories[i:end]))
-		for i, category := range categories[i:end] {
-			rowBtns[i] = menu.Data(category.Attributes.Name, t.Id+category.Id, t.Id, category.Attributes.Name)
+		row := make([]tele.Btn, len(categoriesThisRow))
+		for btnIndex := range row {
+			category := categoriesThisRow[btnIndex]
+			row[btnIndex] = menu.Data(category.Attributes.Name, t.Id+category.Id, t.Id, category.Attributes.Name)
 		}
-		// add "done" button if at last iteration
-		if isLastRow {
-			rowBtns[len(rowBtns)-1] = menu.Data("👍 Passt", t.Id+buttonDataDone, buttonDataDone)
-		}
-		rows[rowIndex] = menu.Row(rowBtns...)
-		rowIndex++
+		rows[rowIndex] = menu.Row(row...)
 	}
+	// insert "Done"-button
+	rows[len(rows)-1] = menu.Row(menu.Data("👍 Passt", t.Id+buttonDataDone, buttonDataDone))
+
 	menu.Inline(rows...)
 
 	notificationBody, err := b.transactionToMessageBody(t, fireflyBaseUrl)
@@ -274,14 +269,15 @@ func newTransactionNotification(date string, sourceName string, destName string,
 }
 
 func (b *telegramBot) NotifyError(err error) error {
+	log.Println("ERROR:", err)
 	body := fmt.Sprintf("<b>❗️ Firefly-III-Autoimporter Fehler ❗️</b>\n\n<i>%s</i>", err)
 
-	_, err = b.bot.Send(
-		b.targetChat,
-		body,
-		tele.ModeHTML,
-	)
-	return err
+	if _, err = b.bot.Send(b.targetChat, body, tele.ModeHTML); err != nil {
+		log.Println("error sending notification:", err)
+		log.Println("initial error:", err)
+		return err
+	}
+	return nil
 }
 
 func formatStr(s string, maxLen int) string {
