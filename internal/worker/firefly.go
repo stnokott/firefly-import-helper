@@ -221,7 +221,8 @@ func (f *fireflyApi) findWebhookByTitle() (*structs.WebhookRead, error) {
 
 func (f *fireflyApi) checkAndUpdateTransaction(t structs.WhTransactionRead) error {
 	var transactionSplitUpdates []structs.TransactionSplitUpdate
-	for _, transactionInner := range t.Transactions {
+	for i := range t.Transactions {
+		transactionInner := t.Transactions[i]
 		log.Println(">> ID: #" + strconv.Itoa(t.Id))
 		log.Println(">> Description: '" + transactionInner.Description + "'")
 		update, err := f.moduleHandler.Process(&transactionInner)

@@ -33,11 +33,11 @@ func NewManager(autoImporterUrl string, autoImporterPort uint, secret string) (*
 func (m *Manager) Import(jsonFilepath string) error {
 	var bodyBuf bytes.Buffer
 	bodyWriter := multipart.NewWriter(&bodyBuf)
-	fileReader, err := os.Open(jsonFilepath)
+	fileReader, err := os.Open(jsonFilepath) //#nosec
 	if err != nil {
 		return err
 	}
-	//goland:noinspection GoUnhandledErrorResult
+	//#nosec
 	defer fileReader.Close()
 
 	fileWriter, err := bodyWriter.CreateFormFile("json", fileReader.Name())
@@ -47,7 +47,7 @@ func (m *Manager) Import(jsonFilepath string) error {
 	if _, err = io.Copy(fileWriter, fileReader); err != nil {
 		return err
 	}
-	//goland:noinspection GoUnhandledErrorResult
+	//#nosec
 	bodyWriter.Close()
 
 	r, err := http.NewRequest(http.MethodPost, m.url, &bodyBuf)
@@ -134,7 +134,7 @@ type configJson struct {
 }
 
 func updateJsonDates(jsonPath string) error {
-	body, err := os.ReadFile(jsonPath)
+	body, err := os.ReadFile(jsonPath) //#nosec
 	if err != nil {
 		return err
 	}
@@ -148,7 +148,7 @@ func updateJsonDates(jsonPath string) error {
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(jsonPath, b, 0666); err != nil {
+	if err := os.WriteFile(jsonPath, b, 0600); err != nil {
 		return err
 	}
 	return nil
