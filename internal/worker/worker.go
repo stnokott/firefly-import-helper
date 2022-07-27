@@ -92,8 +92,8 @@ func NewWorker(fireflyAccessToken string, fireflyBaseURL string, autoimportOptio
 
 /*Autoimport runs the autoimport, messages healthchecks if needed and changes the config files afterwards*/
 func (w *Worker) Autoimport() {
-	log.Println("Running autoimport...")
 	w.pingHealthchecks(healthchecksStart)
+	log.Println("Running autoimport...")
 
 	filepaths, err := w.autoimporter.GetJsonFilePaths()
 	if err != nil {
