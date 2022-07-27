@@ -28,10 +28,10 @@ type endpoints struct {
 	categories   string
 }
 
-type fireflyApi struct {
+type fireflyAPI struct {
 	srv                *http.Server
-	webhookUrl         string
-	fireflyBaseUrl     string
+	webhookURL         string
+	fireflyBaseURL     string
 	endpoints          endpoints
 	fireflyAccessToken string
 	targetWebhook      structs.WebhookAttributes
@@ -40,18 +40,18 @@ type fireflyApi struct {
 }
 
 type transactioNotifier interface {
-	NotifyNewTransaction(t *structs.TransactionRead, fireflyBaseUrl string, categories []structs.CategoryRead) error
+	NotifyNewTransaction(t *structs.TransactionRead, fireflyBaseURL string, categories []structs.CategoryRead) error
 }
 
-func newFireflyApi(fireflyBaseUrl string, fireflyAccessToken string, moduleHandler *modules.ModuleHandler, notifManager transactioNotifier) *fireflyApi {
-	f := fireflyApi{
-		webhookUrl:     fireflyBaseUrl + webhookPath,
-		fireflyBaseUrl: fireflyBaseUrl,
+func newFireflyAPI(fireflyBaseURL string, fireflyAccessToken string, moduleHandler *modules.ModuleHandler, notifManager transactioNotifier) *fireflyAPI {
+	f := fireflyAPI{
+		webhookURL:     fireflyBaseURL + webhookPath,
+		fireflyBaseURL: fireflyBaseURL,
 		endpoints: endpoints{
-			account:      fireflyBaseUrl + pathAccounts,
-			transactions: fireflyBaseUrl + pathTransaction,
-			webhooks:     fireflyBaseUrl + pathWebhooks,
-			categories:   fireflyBaseUrl + pathCategories,
+			account:      fireflyBaseURL + pathAccounts,
+			transactions: fireflyBaseURL + pathTransaction,
+			webhooks:     fireflyBaseURL + pathWebhooks,
+			categories:   fireflyBaseURL + pathCategories,
 		},
 		fireflyAccessToken: fireflyAccessToken,
 		targetWebhook: structs.WebhookAttributes{
@@ -60,7 +60,7 @@ func newFireflyApi(fireflyBaseUrl string, fireflyAccessToken string, moduleHandl
 			Response: "RESPONSE_TRANSACTIONS",
 			Delivery: "DELIVERY_JSON",
 			Trigger:  "TRIGGER_STORE_TRANSACTION",
-			Url:      fireflyBaseUrl + webhookPath,
+			Url:      fireflyBaseURL + webhookPath,
 		},
 		moduleHandler: moduleHandler,
 		notifManager:  notifManager,
@@ -75,7 +75,7 @@ func newFireflyApi(fireflyBaseUrl string, fireflyAccessToken string, moduleHandl
 	return &f
 }
 
-func (f *fireflyApi) Listen() error {
+func (f *fireflyAPI) Listen() error {
 	if f.srv == nil {
 		return errors.New("please set callbacks before calling fireflyApi::Listen")
 	}
@@ -83,14 +83,14 @@ func (f *fireflyApi) Listen() error {
 	go func() {
 		time.Sleep(1 * time.Second) // give a little time for httpServer to be up and running
 		client := http.Client{Timeout: 10 * time.Second}
-		resp, err := client.Get(f.webhookUrl)
+		resp, err := client.Get(f.webhookURL)
 		//goland:noinspection GoUnhandledErrorResult
 		if err != nil {
 			log.Fatalln("Error validating httpServer connection:", err)
 		} else if resp.StatusCode != 200 {
-			log.Fatalln("Could not validate connection from webhook URL ", f.webhookUrl)
+			log.Fatalln("Could not validate connection from webhook URL ", f.webhookURL)
 		}
-		log.Println("Connection to", f.webhookUrl, "validated")
+		log.Println("Connection to", f.webhookURL, "validated")
 		log.Println("Ready to accept connections!")
 	}()
 
@@ -99,7 +99,7 @@ func (f *fireflyApi) Listen() error {
 	return f.srv.ListenAndServe()
 }
 
-func (f *fireflyApi) handleNewTransactionWebhook(_ http.ResponseWriter, r *http.Request) {
+func (f *fireflyAPI) handleNewTransactionWebhook(_ http.ResponseWriter, r *http.Request) {
 	var target struct {
 		Version string                    `json:"version"`
 		Data    structs.WhTransactionRead `json:"content"`
@@ -120,50 +120,50 @@ func (f *fireflyApi) handleNewTransactionWebhook(_ http.ResponseWriter, r *http.
 	log.Println("######### DONE ##########")
 }
 
-func (f *fireflyApi) createOrUpdateWebhook() (string, error) {
+func (f *fireflyAPI) createOrUpdateWebhook() (string, error) {
 	result, err := f.getWebhook()
 	if err != nil {
 		return "", err
 	}
 	if result.Exists && !result.NeedsUpdate {
 		return result.Wh.Attributes.Url, nil
+	}
+
+	var method string
+	var endpoint string
+	if !result.Exists {
+		// create
+		method = "POST"
+		endpoint = f.endpoints.webhooks
 	} else {
-		var method string
-		var endpoint string
-		if !result.Exists {
-			// create
-			method = "POST"
-			endpoint = f.endpoints.webhooks
-		} else {
-			// update
-			method = "PUT"
-			endpoint = f.endpoints.webhooks + "/" + result.Wh.Id
-		}
-		body, err := json.Marshal(f.targetWebhook)
-		if err != nil {
-			return "", err
-		}
-		resp, err := f.request(method, endpoint, bytes.NewBuffer(body))
-		if err != nil {
-			return "", err
-		}
-		var resultWebhook struct {
-			Data structs.WebhookRead `json:"data"`
-		}
-		//goland:noinspection GoUnhandledErrorResult
-		defer resp.Body.Close()
-		respBytes, _ := io.ReadAll(resp.Body)
-		if err := json.Unmarshal(respBytes, &resultWebhook); err != nil {
-			return "", err
-		} else if resultWebhook.Data.Attributes.Title == "" {
-			return "", errors.New(">> webhook create/update unsuccessful")
-		} else {
-			return resultWebhook.Data.Attributes.Url, nil
-		}
+		// update
+		method = "PUT"
+		endpoint = f.endpoints.webhooks + "/" + result.Wh.Id
+	}
+	body, err := json.Marshal(f.targetWebhook)
+	if err != nil {
+		return "", err
+	}
+	resp, err := f.request(method, endpoint, bytes.NewBuffer(body))
+	if err != nil {
+		return "", err
+	}
+	var resultWebhook struct {
+		Data structs.WebhookRead `json:"data"`
+	}
+	//goland:noinspection GoUnhandledErrorResult
+	defer resp.Body.Close()
+	respBytes, _ := io.ReadAll(resp.Body)
+	if err := json.Unmarshal(respBytes, &resultWebhook); err != nil {
+		return "", err
+	} else if resultWebhook.Data.Attributes.Title == "" {
+		return "", errors.New(">> webhook create/update unsuccessful")
+	} else {
+		return resultWebhook.Data.Attributes.Url, nil
 	}
 }
 
-func (f *fireflyApi) getWebhook() (*structs.WhUrlResult, error) {
+func (f *fireflyAPI) getWebhook() (*structs.WhUrlResult, error) {
 	wh, err := f.findWebhookByTitle()
 	if err != nil {
 		return nil, err
@@ -173,28 +173,28 @@ func (f *fireflyApi) getWebhook() (*structs.WhUrlResult, error) {
 			Exists:      false,
 			NeedsUpdate: false,
 		}, nil
-	} else {
-		if !wh.Attributes.Active ||
-			wh.Attributes.Delivery != f.targetWebhook.Delivery ||
-			wh.Attributes.Response != f.targetWebhook.Response ||
-			wh.Attributes.Trigger != f.targetWebhook.Trigger ||
-			wh.Attributes.Url != f.targetWebhook.Url {
-			return &structs.WhUrlResult{
-				Exists:      true,
-				NeedsUpdate: true,
-				Wh:          wh,
-			}, nil
-		} else {
-			return &structs.WhUrlResult{
-				Exists:      true,
-				NeedsUpdate: false,
-				Wh:          wh,
-			}, nil
-		}
 	}
+
+	if !wh.Attributes.Active ||
+		wh.Attributes.Delivery != f.targetWebhook.Delivery ||
+		wh.Attributes.Response != f.targetWebhook.Response ||
+		wh.Attributes.Trigger != f.targetWebhook.Trigger ||
+		wh.Attributes.Url != f.targetWebhook.Url {
+		return &structs.WhUrlResult{
+			Exists:      true,
+			NeedsUpdate: true,
+			Wh:          wh,
+		}, nil
+	}
+
+	return &structs.WhUrlResult{
+		Exists:      true,
+		NeedsUpdate: false,
+		Wh:          wh,
+	}, nil
 }
 
-func (f *fireflyApi) findWebhookByTitle() (*structs.WebhookRead, error) {
+func (f *fireflyAPI) findWebhookByTitle() (*structs.WebhookRead, error) {
 	resp, err := f.request("GET", f.endpoints.webhooks, nil)
 	if err != nil {
 		return nil, err
@@ -219,7 +219,7 @@ func (f *fireflyApi) findWebhookByTitle() (*structs.WebhookRead, error) {
 	return nil, nil
 }
 
-func (f *fireflyApi) checkAndUpdateTransaction(t structs.WhTransactionRead) error {
+func (f *fireflyAPI) checkAndUpdateTransaction(t structs.WhTransactionRead) error {
 	var transactionSplitUpdates []structs.TransactionSplitUpdate
 	for i := range t.Transactions {
 		transactionInner := t.Transactions[i]
@@ -262,7 +262,7 @@ func (f *fireflyApi) checkAndUpdateTransaction(t structs.WhTransactionRead) erro
 		log.Println("WARNING: could not retrieve category names:", err)
 	}
 	log.Println(">> Sending notification...")
-	err = f.notifManager.NotifyNewTransaction(resultTransaction, f.fireflyBaseUrl, categories)
+	err = f.notifManager.NotifyNewTransaction(resultTransaction, f.fireflyBaseURL, categories)
 	if err == nil {
 		log.Println(">> Success.")
 	} else {
@@ -271,7 +271,7 @@ func (f *fireflyApi) checkAndUpdateTransaction(t structs.WhTransactionRead) erro
 	return nil
 }
 
-func (f *fireflyApi) getTransaction(id int) (*structs.TransactionRead, error) {
+func (f *fireflyAPI) getTransaction(id int) (*structs.TransactionRead, error) {
 	endpoint := fmt.Sprintf("%s/%d", f.endpoints.transactions, id)
 	resp, err := f.request("GET", endpoint, nil)
 	if err != nil {
@@ -288,7 +288,7 @@ func (f *fireflyApi) getTransaction(id int) (*structs.TransactionRead, error) {
 	return &respTransaction.Data, nil
 }
 
-func (f *fireflyApi) getCategories() ([]structs.CategoryRead, error) {
+func (f *fireflyAPI) getCategories() ([]structs.CategoryRead, error) {
 	resp, err := f.request("GET", f.endpoints.categories, nil)
 	if err != nil {
 		return nil, err
@@ -304,7 +304,7 @@ func (f *fireflyApi) getCategories() ([]structs.CategoryRead, error) {
 	return categoriesResp.Data, nil
 }
 
-func (f *fireflyApi) UpdateTransaction(id int, tu *structs.TransactionUpdate) (*structs.TransactionRead, error) {
+func (f *fireflyAPI) UpdateTransaction(id int, tu *structs.TransactionUpdate) (*structs.TransactionRead, error) {
 	endpoint := fmt.Sprintf("%s/%d", f.endpoints.transactions, id)
 
 	updateObjBytes, err := json.Marshal(tu)
@@ -331,11 +331,11 @@ func (f *fireflyApi) UpdateTransaction(id int, tu *structs.TransactionUpdate) (*
 	return &updateResponse.Data, nil
 }
 
-func (f *fireflyApi) FireflyBaseUrl() string {
-	return f.fireflyBaseUrl
+func (f *fireflyAPI) FireflyBaseUrl() string {
+	return f.fireflyBaseURL
 }
 
-func (f *fireflyApi) SetTransactionCategory(id int, categoryName string) (*structs.TransactionRead, error) {
+func (f *fireflyAPI) SetTransactionCategory(id int, categoryName string) (*structs.TransactionRead, error) {
 	transaction, err := f.getTransaction(id)
 	if err != nil {
 		return nil, err
@@ -379,7 +379,7 @@ func parseResponseError(r *http.Response) string {
 	}
 }
 
-func (f *fireflyApi) request(method string, url string, body io.Reader) (*http.Response, error) {
+func (f *fireflyAPI) request(method string, url string, body io.Reader) (*http.Response, error) {
 	r, err := http.NewRequest(method, url, body)
 	if err != nil {
 		return nil, err

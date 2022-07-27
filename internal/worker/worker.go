@@ -12,62 +12,67 @@ import (
 	"github.com/go-co-op/gocron"
 )
 
+/*Worker handles commands and interference between components*/
 type Worker struct {
-	fireflyApi      *fireflyApi
+	fireflyAPI      *fireflyAPI
 	telegramBot     *telegramBot
 	autoimporter    *autoimport.Manager
 	scheduler       *gocron.Scheduler
-	healthchecksUrl string
+	healthchecksURL string
 	httpClient      *http.Client
 }
 
+/*AutoimportOptions holds options for the autoimporter*/
 type AutoimportOptions struct {
-	Url             string
+	URL             string
 	Port            uint
 	Secret          string
 	CronSchedule    string
-	HealthchecksUrl string
+	HealthchecksURL string
 }
 
+/*TelegramOptions holds options for the telegram worker*/
 type TelegramOptions struct {
 	AccessToken string
-	ChatId      int64
+	ChatID      int64
 }
 
 const cronTag = "autoimport"
 
-func NewWorker(fireflyAccessToken string, fireflyBaseUrl string, autoimportOptions *AutoimportOptions, telegramOptions *TelegramOptions) (*Worker, error) {
+/*NewWorker creates a new worker instance*/
+func NewWorker(fireflyAccessToken string, fireflyBaseURL string, autoimportOptions *AutoimportOptions, telegramOptions *TelegramOptions) (*Worker, error) {
 	// remove trailing slash from Firefly III base URL
-	if fireflyBaseUrl[len(fireflyBaseUrl)-1:] == "/" {
-		fireflyBaseUrl = fireflyBaseUrl[:len(fireflyBaseUrl)-1]
+	if fireflyBaseURL[len(fireflyBaseURL)-1:] == "/" {
+		fireflyBaseURL = fireflyBaseURL[:len(fireflyBaseURL)-1]
 	}
 
-	bot, err := NewBot(telegramOptions.AccessToken, telegramOptions.ChatId)
+	bot, err := NewBot(telegramOptions.AccessToken, telegramOptions.ChatID)
 	if err != nil {
 		return nil, err
 	}
 
-	fireflyApi := newFireflyApi(
-		fireflyBaseUrl,
+	fireflyAPI := newFireflyAPI(
+		fireflyBaseURL,
 		fireflyAccessToken,
 		modules.NewModuleHandler(),
 		bot,
 	)
-	bot.transactionUpdater = fireflyApi
+	bot.transactionUpdater = fireflyAPI
 
-	autoimporter, err := autoimport.NewManager(autoimportOptions.Url, autoimportOptions.Port, autoimportOptions.Secret)
+	autoimporter, err := autoimport.NewManager(autoimportOptions.URL, autoimportOptions.Port, autoimportOptions.Secret)
 	if err != nil {
 		return nil, err
 	}
 
 	scheduler := gocron.NewScheduler(time.Local)
+	log.Printf("Initiated new Cron scheduler with timezone %s", scheduler.Location())
 
 	w := &Worker{
 		telegramBot:     bot,
-		fireflyApi:      fireflyApi,
+		fireflyAPI:      fireflyAPI,
 		autoimporter:    autoimporter,
 		scheduler:       scheduler,
-		healthchecksUrl: autoimportOptions.HealthchecksUrl,
+		healthchecksURL: autoimportOptions.HealthchecksURL,
 		httpClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},
@@ -85,6 +90,7 @@ func NewWorker(fireflyAccessToken string, fireflyBaseUrl string, autoimportOptio
 	return w, nil
 }
 
+/*Autoimport runs the autoimport, messages healthchecks if needed and changes the config files afterwards*/
 func (w *Worker) Autoimport() {
 	log.Println("Running autoimport...")
 	w.pingHealthchecks(healthchecksStart)
@@ -120,17 +126,17 @@ const (
 	healthchecksFailed
 )
 
-func (w *Worker) pingHealthchecks(type_ healthchecksType) {
-	if w.healthchecksUrl != "" {
-		healthchecksUrl := w.healthchecksUrl
-		switch type_ {
+func (w *Worker) pingHealthchecks(typ healthchecksType) {
+	if w.healthchecksURL != "" {
+		healthchecksURL := w.healthchecksURL
+		switch typ {
 		case healthchecksStart:
-			healthchecksUrl += "/start"
+			healthchecksURL += "/start"
 		case healthchecksFailed:
-			healthchecksUrl += "/fail"
+			healthchecksURL += "/fail"
 		}
-		log.Printf("Pinging %s...", healthchecksUrl)
-		_, err := w.httpClient.Head(healthchecksUrl)
+		log.Printf("Pinging %s...", healthchecksURL)
+		_, err := w.httpClient.Head(healthchecksURL)
 		if err != nil {
 			log.Println("WARNING: could not ping healthchecks:", err)
 		}
@@ -141,14 +147,15 @@ func (w *Worker) getNextAutoimportAsString() string {
 	jobs, err := w.scheduler.FindJobsByTag(cronTag)
 	if err != nil {
 		return "n/a"
-	} else {
-		return jobs[0].NextRun().Format("02.01.2006 15:04:05")
 	}
+
+	return jobs[0].NextRun().Format("02.01.2006 15:04:05")
 }
 
+/*Listen starts webserver and ensures a webhook in Firefly exists, pointing to this server*/
 func (w *Worker) Listen() error {
 	log.Println("Ensuring webhook exists...")
-	url, err := w.fireflyApi.createOrUpdateWebhook()
+	url, err := w.fireflyAPI.createOrUpdateWebhook()
 	if err != nil {
 		return err
 	}
@@ -169,5 +176,5 @@ func (w *Worker) Listen() error {
 
 	log.Println("Next autoimport scheduled for", w.getNextAutoimportAsString())
 	log.Println()
-	return w.fireflyApi.Listen()
+	return w.fireflyAPI.Listen()
 }

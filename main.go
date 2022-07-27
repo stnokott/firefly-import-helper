@@ -50,11 +50,11 @@ func main() {
 		log.Fatalf("could not parse %s = %s as int", envAutoimporterPort, envMap[envAutoimporterPort])
 	}
 	autoImportOptions := worker.AutoimportOptions{
-		Url:             envMap[envAutoimporterUrl],
+		URL:             envMap[envAutoimporterUrl],
 		Port:            uint(autoImporterPortInt),
 		Secret:          envMap[envAutoimporterSecret],
 		CronSchedule:    envMap[envAutoimporterSchedule],
-		HealthchecksUrl: envMap[envHealthchecksUrl],
+		HealthchecksURL: envMap[envHealthchecksUrl],
 	}
 
 	chatIdInt, err := strconv.ParseInt(envMap[envTelegramChatId], 10, 64)
@@ -63,7 +63,7 @@ func main() {
 	}
 	telegramOptions := worker.TelegramOptions{
 		AccessToken: envMap[envTelegramToken],
-		ChatId:      chatIdInt,
+		ChatID:      chatIdInt,
 	}
 	log.Println("Running", util.Version)
 	log.Println("#########################")
