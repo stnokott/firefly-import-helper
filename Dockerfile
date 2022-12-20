@@ -1,8 +1,18 @@
-FROM alpine:3.17.0
+FROM golang:1.18.1-alpine as build
 
-RUN apk update && apk --no-cache add tzdata
+RUN apk update && apk --no-cache add git tzdata
 
-ENV TZ=Europe/Berlin
+WORKDIR /usr/src/firefly-import-helper
+
+COPY . ./
+RUN go mod download && go mod verify
+
+RUN CGO_ENABLED=0 GOOS=linux go build -v -o app .
+
+FROM alpine:latest
 EXPOSE 8822
-COPY app /
-ENTRYPOINT ["/app"]
+WORKDIR /root/
+COPY --from=build /usr/src/firefly-import-helper/app ./
+COPY --from=build /usr/share/zoneinfo /usr/share/zoneinfo
+ENV TZ=Europe/Berlin
+CMD ["./app"]

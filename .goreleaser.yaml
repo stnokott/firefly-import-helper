@@ -1,5 +1,5 @@
-# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
-
+# This is an example .goreleaser.yml file with some sensible defaults.
+# Make sure to check the documentation at https://goreleaser.com
 before:
   hooks:
     - go mod tidy
@@ -10,83 +10,28 @@ builds:
       - CGO_ENABLED=0
     goos:
       - linux
-    goarch:
-      - amd64
-      - arm
-      - arm64
-    goarm:
-      - "7"
+      - windows
     binary: app
+archives:
+  - replacements:
+      linux: Linux
+      windows: Windows
+      386: i386
+      amd64: x86_64
+checksum:
+  name_template: 'checksums.txt'
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
 changelog:
   sort: asc
-  abbrev: -1
-  use: github
   filters:
     exclude:
-      - "^style"
-      - "^refactor"
-      - "^test"
-      - "^build"
-      - "^ci"
-      - "^bump"
-      - "^Merge pull request"
-
-  groups:
-    - title: Features
-      regexp: "^feat"
-      order: 0
-    - title: Bug Fixes
-      regexp: "^fix"
-    - title: Documentation
-      regexp: "^docs"
-    - title: Performance Optimization
-      regexp: "^perf"
-    - title: Others
-      order: 999
+      - '^docs:'
+      - '^test:'
 release:
-  target_commitish: "{{ .Commit }}"
   github:
     owner: stnokott
     name: firefly-import-helper
-  name_template: "v{{ .Version }}"
-dockers:
-  - image_templates:
-      - "ghcr.io/stnokott/{{ .ProjectName }}:latest"
-      - "ghcr.io/stnokott/{{ .ProjectName }}:{{ .Version }}"
-    goos: linux
-    goarch: amd64
-    dockerfile: "Dockerfile"
-    build_flag_templates:
-      - "--pull"
-      - "--label=org.opencontainers.image.created={{.Date}}"
-      - "--label=org.opencontainers.image.title={{.ProjectName}}"
-      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
-      - "--label=org.opencontainers.image.version={{.Version}}"
-      - "--platform=linux/amd64"
-  - image_templates:
-      - "ghcr.io/stnokott/{{ .ProjectName }}:latest"
-      - "ghcr.io/stnokott/{{ .ProjectName }}:{{ .Version }}"
-    goos: linux
-    goarch: arm
-    goarm: "7"
-    dockerfile: "Dockerfile"
-    build_flag_templates:
-      - "--pull"
-      - "--label=org.opencontainers.image.created={{.Date}}"
-      - "--label=org.opencontainers.image.title={{.ProjectName}}"
-      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
-      - "--label=org.opencontainers.image.version={{.Version}}"
-      - "--platform=linux/arm/v7"
-  - image_templates:
-      - "ghcr.io/stnokott/{{ .ProjectName }}:latest"
-      - "ghcr.io/stnokott/{{ .ProjectName }}:{{ .Version }}"
-    goos: linux
-    goarch: arm64
-    dockerfile: "Dockerfile"
-    build_flag_templates:
-      - "--pull"
-      - "--label=org.opencontainers.image.created={{.Date}}"
-      - "--label=org.opencontainers.image.title={{.ProjectName}}"
-      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
-      - "--label=org.opencontainers.image.version={{.Version}}"
-      - "--platform=linux/arm64"
+  mode: append
+env_files:
+  github_token: ~/.config/goreleaser/github_token

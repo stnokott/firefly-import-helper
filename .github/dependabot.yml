@@ -18,14 +18,3 @@ updates:
       - "stnokott"
     reviewers:
       - "stnokott"
-  - package-ecosystem: docker
-    directory: /
-    schedule:
-      interval: weekly
-      timezone: Europe/Berlin
-    assignees:
-      - stnokott
-    reviewers:
-      - stnokott
-    commit-message:
-      prefix: docker
