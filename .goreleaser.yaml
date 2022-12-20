@@ -65,7 +65,7 @@ dockers:
       - "--label=org.opencontainers.image.version={{.Version}}"
       - "--platform=linux/amd64"
   - image_templates:
-      - "ghcr.io/stnokott/{{ .ProjectName }}:latest-amd64"
+      - "ghcr.io/stnokott/{{ .ProjectName }}:latest"
       - "ghcr.io/stnokott/{{ .ProjectName }}:{{ .Version }}-armv7"
     goos: linux
     goarch: arm
