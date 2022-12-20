@@ -67,6 +67,7 @@ dockers:
       - "ghcr.io/stnokott/{{ .ProjectName }}:{{ .Version }}"
     goos: linux
     goarch: arm
+    goarm: "7"
     dockerfile: "Dockerfile"
     use: buildx
     build_flag_templates:
