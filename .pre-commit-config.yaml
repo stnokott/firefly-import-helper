@@ -1,41 +1,44 @@
 repos:
-- repo: local
-  hooks:
-    - id: go-mod-tidy
-      name: go-mod-tidy
-      language: golang
-      files: '.mod'
-      entry: go
-      args: ['mod', 'tidy']
-      fail_fast: true
-      pass_filenames: false
-    - id: go-test-race
-      name: go-test-race
-      language: golang
-      entry: go
-      args: ['test', '-race', './...']
-      fail_fast: true
-      pass_filenames: false
-    - id: gosec
-      # go install github.com/securego/gosec/v2/cmd/gosec@latest
-      name: gosec
-      language: golang
-      files: '.go'
-      entry: gosec
-      args: ['-fmt', 'text', '-quiet', '-tests', './...']
-      fail_fast: true
-      pass_filenames: false
-- repo: https://github.com/lietu/go-pre-commit
-  rev: v0.0.1
-  hooks:
-    # - id: golangci-lint
-    - id: golint
-- repo: https://github.com/jorisroovers/gitlint
-  rev: v0.17.0
-  hooks:
-    - id: gitlint
-      stages: [commit-msg]
-- repo: https://github.com/golangci/golangci-lint
-  rev: v1.47.2
-  hooks:
-    - id: golangci-lint
+  - hooks:
+      - args:
+          - mod
+          - tidy
+        entry: go
+        fail_fast: true
+        files: .mod
+        id: go-mod-tidy
+        language: golang
+        name: go-mod-tidy
+        pass_filenames: false
+      - args:
+          - test
+          - -race
+          - ./...
+        entry: go
+        fail_fast: true
+        id: go-test-race
+        language: golang
+        name: go-test-race
+        pass_filenames: false
+      - args:
+          - -fmt
+          - text
+          - -quiet
+          - -tests
+          - ./...
+        entry: gosec
+        fail_fast: true
+        files: .go
+        id: gosec
+        language: golang
+        name: gosec
+        pass_filenames: false
+    repo: local
+  - hooks:
+      - id: golangci-lint
+    repo: https://github.com/golangci/golangci-lint
+    rev: v1.47.2
+  - hooks:
+      - id: commitizen
+    repo: https://github.com/commitizen-tools/commitizen
+    rev: v2.38.0
