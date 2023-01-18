@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"mime/multipart"
 	"net/http"
 	"os"
@@ -64,7 +63,7 @@ func (m *Manager) Import(jsonFilepath string) error {
 	if resp.StatusCode != http.StatusOK {
 		//goland:noinspection GoUnhandledErrorResult
 		defer resp.Body.Close()
-		respBytes, err := ioutil.ReadAll(resp.Body)
+		respBytes, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return errors.New("unknown error occured")
 		} else {
