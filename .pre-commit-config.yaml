@@ -20,25 +20,12 @@ repos:
         language: golang
         name: go-test-race
         pass_filenames: false
-      - args:
-          - -fmt
-          - text
-          - -quiet
-          - -tests
-          - ./...
-        entry: gosec
-        fail_fast: true
-        files: .go
-        id: gosec
-        language: golang
-        name: gosec
-        pass_filenames: false
     repo: local
   - hooks:
       - id: golangci-lint
     repo: https://github.com/golangci/golangci-lint
-    rev: v1.47.2
+    rev: v1.51.1
   - hooks:
       - id: commitizen
     repo: https://github.com/commitizen-tools/commitizen
-    rev: v2.38.0
+    rev: v2.41.0

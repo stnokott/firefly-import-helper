@@ -201,6 +201,8 @@ func (f *fireflyAPI) findWebhookByTitle() (*structs.WebhookRead, error) {
 	}
 	if resp.StatusCode == http.StatusNotFound {
 		return nil, nil
+	} else if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("got invalid status code %d", resp.StatusCode)
 	}
 	var webhooksResponse struct {
 		Webhooks []structs.WebhookRead `json:"data"`
