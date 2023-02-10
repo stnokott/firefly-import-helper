@@ -95,27 +95,34 @@ func (w *Worker) Autoimport() {
 	w.pingHealthchecks(healthchecksStart)
 	log.Println("Running autoimport...")
 
-	filepaths, err := w.autoimporter.GetJsonFilePaths()
-	if err != nil {
-		if errInner := w.telegramBot.NotifyError(err); errInner != nil {
+	var err error
+	defer func() {
+		log.Println(">> Done, next at", w.getNextAutoimportAsString())
+		if err != nil {
 			w.pingHealthchecks(healthchecksFailed)
-			return
-		}
-	}
-	for _, jsonPath := range filepaths {
-		log.Println(">>", filepath.Base(jsonPath))
-		if err := w.autoimporter.Import(jsonPath); err != nil {
-			log.Println(">> got error:", err)
-			err := fmt.Errorf("could not autoimport config %s: %s", filepath.Base(jsonPath), err)
 			if errInner := w.telegramBot.NotifyError(err); errInner != nil {
 				log.Println("error sending notification:", errInner)
 				log.Println("initial error:", err)
-				w.pingHealthchecks(healthchecksFailed)
+				return
 			}
+		} else {
+			w.pingHealthchecks(healthchecksSuccess)
+		}
+	}()
+
+	var filepaths []string
+	filepaths, err = w.autoimporter.GetJsonFilePaths()
+	if err != nil {
+		return
+	}
+	for _, jsonPath := range filepaths {
+		log.Println(">>", filepath.Base(jsonPath))
+		if err = w.autoimporter.Import(jsonPath); err != nil {
+			log.Println(">> got error:", err)
+			err = fmt.Errorf("could not autoimport config %s: %s", filepath.Base(jsonPath), err)
+			return
 		}
 	}
-	w.pingHealthchecks(healthchecksSuccess)
-	log.Println(">> Done, next at", w.getNextAutoimportAsString())
 }
 
 type healthchecksType uint8
