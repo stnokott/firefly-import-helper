@@ -164,7 +164,7 @@ func (w *Worker) Listen() error {
 	log.Println("Ensuring webhook exists...")
 	url, err := w.fireflyAPI.createOrUpdateWebhook()
 	if err != nil {
-		return err
+		return fmt.Errorf(">> error occured: %w", err)
 	}
 	log.Println(">> Webhook ready at", url)
 	log.Println()
