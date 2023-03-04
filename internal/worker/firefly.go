@@ -57,9 +57,9 @@ func newFireflyAPI(fireflyBaseURL string, fireflyAccessToken string, moduleHandl
 		targetWebhook: structs.WebhookAttributes{
 			Active:   true,
 			Title:    "Fix ING transaction descriptions from Importer",
-			Response: "RESPONSE_TRANSACTIONS",
-			Delivery: "DELIVERY_JSON",
-			Trigger:  "TRIGGER_STORE_TRANSACTION",
+			Response: "TRANSACTIONS",
+			Delivery: "JSON",
+			Trigger:  "STORE_TRANSACTION",
 			Url:      fireflyBaseURL + webhookPath,
 		},
 		moduleHandler: moduleHandler,
@@ -133,10 +133,12 @@ func (f *fireflyAPI) createOrUpdateWebhook() (string, error) {
 	var endpoint string
 	if !result.Exists {
 		// create
+		log.Printf("webhook with title '%s' does not exist, creating a new one", f.targetWebhook.Title)
 		method = "POST"
 		endpoint = f.endpoints.webhooks
 	} else {
 		// update
+		log.Printf("webhook with title '%s' exists, but requires update", f.targetWebhook.Title)
 		method = "PUT"
 		endpoint = f.endpoints.webhooks + "/" + result.Wh.Id
 	}
@@ -149,18 +151,22 @@ func (f *fireflyAPI) createOrUpdateWebhook() (string, error) {
 		return "", err
 	}
 	var resultWebhook struct {
-		Data structs.WebhookRead `json:"data"`
+		Data    structs.WebhookRead `json:"data"`
+		Message string              `json:"message"`
 	}
 	//goland:noinspection GoUnhandledErrorResult
 	defer resp.Body.Close()
 	respBytes, _ := io.ReadAll(resp.Body)
 	if err := json.Unmarshal(respBytes, &resultWebhook); err != nil {
 		return "", err
-	} else if resultWebhook.Data.Attributes.Title == "" {
-		return "", errors.New(">> webhook create/update unsuccessful")
-	} else {
-		return resultWebhook.Data.Attributes.Url, nil
 	}
+	if resp.StatusCode != http.StatusOK && resultWebhook.Message != "" {
+		return "", errors.New(resultWebhook.Message)
+	}
+	if resultWebhook.Data.Attributes.Title == "" {
+		return "", errors.New("unknown error")
+	}
+	return resultWebhook.Data.Attributes.Url, nil
 }
 
 func (f *fireflyAPI) getWebhook() (*structs.WhUrlResult, error) {
