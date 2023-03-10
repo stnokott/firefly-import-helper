@@ -5,7 +5,7 @@ go 1.18
 require (
 	github.com/go-co-op/gocron v1.18.1
 	golang.org/x/exp v0.0.0-20220428152302-39d4317da171
-	gopkg.in/telebot.v3 v3.1.2
+	gopkg.in/telebot.v3 v3.1.3
 )
 
 require (
