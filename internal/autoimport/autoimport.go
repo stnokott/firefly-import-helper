@@ -29,51 +29,62 @@ func NewManager(autoImporterUrl string, autoImporterPort uint, secret string) (*
 	}, nil
 }
 
-func (m *Manager) Import(jsonFilepath string) error {
-	var bodyBuf bytes.Buffer
+func (m *Manager) Import(jsonFilepath string) (err error) {
+	var (
+		bodyBuf    bytes.Buffer
+		fileReader *os.File
+	)
 	bodyWriter := multipart.NewWriter(&bodyBuf)
-	fileReader, err := os.Open(jsonFilepath) //#nosec
+	fileReader, err = os.Open(jsonFilepath)
 	if err != nil {
 		return err
 	}
-	//#nosec
-	defer fileReader.Close()
+	defer func() {
+		err = errors.Join(err, fileReader.Close())
+	}()
 
-	fileWriter, err := bodyWriter.CreateFormFile("json", fileReader.Name())
+	var fileWriter io.Writer
+	fileWriter, err = bodyWriter.CreateFormFile("json", fileReader.Name())
 	if err != nil {
-		return err
+		return
 	}
 	if _, err = io.Copy(fileWriter, fileReader); err != nil {
-		return err
+		return
 	}
-	//#nosec
-	bodyWriter.Close()
+	defer func() {
+		err = errors.Join(err, bodyWriter.Close())
+	}()
 
-	r, err := http.NewRequest(http.MethodPost, m.url, &bodyBuf)
+	var r *http.Request
+	r, err = http.NewRequest(http.MethodPost, m.url, &bodyBuf)
 	if err != nil {
-		return err
+		return
 	}
 	r.Header.Set("Accept", "application/json")
 	r.Header.Set("Content-Type", bodyWriter.FormDataContentType())
 
-	resp, err := m.client.Do(r)
+	var resp *http.Response
+	resp, err = m.client.Do(r)
 	if err != nil {
-		return err
+		return
 	}
 	if resp.StatusCode != http.StatusOK {
-		//goland:noinspection GoUnhandledErrorResult
-		defer resp.Body.Close()
-		respBytes, err := io.ReadAll(resp.Body)
+		defer func() {
+			err = errors.Join(err, resp.Body.Close())
+		}()
+		var respBytes []byte
+		respBytes, err = io.ReadAll(resp.Body)
 		if err != nil {
-			return errors.New("unknown error occured")
+			err = errors.New("unknown error occured")
 		} else {
-			return errors.New(string(respBytes))
+			err = errors.New(string(respBytes))
 		}
+		return
 	}
-	if err := updateJsonDates(jsonFilepath); err != nil {
-		return err
+	if err = updateJsonDates(jsonFilepath); err != nil {
+		return
 	}
-	return nil
+	return
 }
 
 func (m *Manager) GetJsonFilePaths() ([]string, error) {
