@@ -104,8 +104,11 @@ func (f *fireflyAPI) handleNewTransactionWebhook(_ http.ResponseWriter, r *http.
 		Version string                    `json:"version"`
 		Data    structs.WhTransactionRead `json:"content"`
 	}
-	//goland:noinspection GoUnhandledErrorResult
-	defer r.Body.Close()
+	defer func() {
+		if errClose := r.Body.Close(); errClose != nil {
+			log.Printf("WARNING: error closing request body: %v", errClose)
+		}
+	}()
 	if err := json.NewDecoder(r.Body).Decode(&target); err != nil || target.Version == "" {
 		log.Println("WARNING: received request with invalid body structure")
 		return
@@ -120,13 +123,15 @@ func (f *fireflyAPI) handleNewTransactionWebhook(_ http.ResponseWriter, r *http.
 	log.Println("######### DONE ##########")
 }
 
-func (f *fireflyAPI) createOrUpdateWebhook() (string, error) {
-	result, err := f.getWebhook()
+func (f *fireflyAPI) createOrUpdateWebhook() (url string, err error) {
+	var result *structs.WhUrlResult
+	result, err = f.getWebhook()
 	if err != nil {
-		return "", err
+		return
 	}
 	if result.Exists && !result.NeedsUpdate {
-		return result.Wh.Attributes.Url, nil
+		url = result.Wh.Attributes.Url
+		return
 	}
 
 	var method string
@@ -142,31 +147,37 @@ func (f *fireflyAPI) createOrUpdateWebhook() (string, error) {
 		method = "PUT"
 		endpoint = f.endpoints.webhooks + "/" + result.Wh.Id
 	}
-	body, err := json.Marshal(f.targetWebhook)
+	var body []byte
+	body, err = json.Marshal(f.targetWebhook)
 	if err != nil {
-		return "", err
+		return
 	}
-	resp, err := f.request(method, endpoint, bytes.NewBuffer(body))
+	var resp *http.Response
+	resp, err = f.request(method, endpoint, bytes.NewBuffer(body))
 	if err != nil {
-		return "", err
+		return
 	}
 	var resultWebhook struct {
 		Data    structs.WebhookRead `json:"data"`
 		Message string              `json:"message"`
 	}
-	//goland:noinspection GoUnhandledErrorResult
-	defer resp.Body.Close()
+	defer func() {
+		err = errors.Join(err, resp.Body.Close())
+	}()
 	respBytes, _ := io.ReadAll(resp.Body)
-	if err := json.Unmarshal(respBytes, &resultWebhook); err != nil {
-		return "", err
+	if err = json.Unmarshal(respBytes, &resultWebhook); err != nil {
+		return
 	}
 	if resp.StatusCode != http.StatusOK && resultWebhook.Message != "" {
-		return "", errors.New(resultWebhook.Message)
+		err = errors.New(resultWebhook.Message)
+		return
 	}
 	if resultWebhook.Data.Attributes.Title == "" {
-		return "", errors.New("unknown error")
+		err = errors.New("unknown error")
+		return
 	}
-	return resultWebhook.Data.Attributes.Url, nil
+	url = resultWebhook.Data.Attributes.Url
+	return
 }
 
 func (f *fireflyAPI) getWebhook() (*structs.WhUrlResult, error) {
@@ -200,31 +211,35 @@ func (f *fireflyAPI) getWebhook() (*structs.WhUrlResult, error) {
 	}, nil
 }
 
-func (f *fireflyAPI) findWebhookByTitle() (*structs.WebhookRead, error) {
-	resp, err := f.request("GET", f.endpoints.webhooks, nil)
+func (f *fireflyAPI) findWebhookByTitle() (wh *structs.WebhookRead, err error) {
+	var resp *http.Response
+	resp, err = f.request("GET", f.endpoints.webhooks, nil)
 	if err != nil {
-		return nil, err
+		return
 	}
 	if resp.StatusCode == http.StatusNotFound {
-		return nil, nil
+		return
 	} else if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("got invalid status code %d", resp.StatusCode)
+		err = fmt.Errorf("got invalid status code %d", resp.StatusCode)
+		return
 	}
 	var webhooksResponse struct {
 		Webhooks []structs.WebhookRead `json:"data"`
 	}
-	//goland:noinspection GoUnhandledErrorResult
-	defer resp.Body.Close()
-	if err := json.NewDecoder(resp.Body).Decode(&webhooksResponse); err != nil {
-		return nil, err
+	defer func() {
+		err = errors.Join(err, resp.Body.Close())
+	}()
+	if err = json.NewDecoder(resp.Body).Decode(&webhooksResponse); err != nil {
+		return
 	}
 
 	for _, webhook := range webhooksResponse.Webhooks {
 		if webhook.Attributes.Title == f.targetWebhook.Title {
-			return &webhook, nil
+			wh = &webhook
+			return
 		}
 	}
-	return nil, nil
+	return
 }
 
 func (f *fireflyAPI) checkAndUpdateTransaction(t structs.WhTransactionRead) error {
@@ -279,64 +294,76 @@ func (f *fireflyAPI) checkAndUpdateTransaction(t structs.WhTransactionRead) erro
 	return nil
 }
 
-func (f *fireflyAPI) getTransaction(id int) (*structs.TransactionRead, error) {
+func (f *fireflyAPI) getTransaction(id int) (data *structs.TransactionRead, err error) {
 	endpoint := fmt.Sprintf("%s/%d", f.endpoints.transactions, id)
-	resp, err := f.request("GET", endpoint, nil)
+	var resp *http.Response
+	resp, err = f.request("GET", endpoint, nil)
 	if err != nil {
-		return nil, err
+		return
 	}
 	var respTransaction struct {
 		Data structs.TransactionRead `json:"data"`
 	}
-	//goland:noinspection GoUnhandledErrorResult
-	defer resp.Body.Close()
-	if err := json.NewDecoder(resp.Body).Decode(&respTransaction); err != nil {
-		return nil, err
+	defer func() {
+		err = errors.Join(err, resp.Body.Close())
+	}()
+	if err = json.NewDecoder(resp.Body).Decode(&respTransaction); err != nil {
+		return
 	}
-	return &respTransaction.Data, nil
+	data = &respTransaction.Data
+	return
 }
 
-func (f *fireflyAPI) getCategories() ([]structs.CategoryRead, error) {
-	resp, err := f.request("GET", f.endpoints.categories, nil)
+func (f *fireflyAPI) getCategories() (data []structs.CategoryRead, err error) {
+	var resp *http.Response
+	resp, err = f.request("GET", f.endpoints.categories, nil)
 	if err != nil {
-		return nil, err
+		return
 	}
 	var categoriesResp struct {
 		Data []structs.CategoryRead `json:"data"`
 	}
-	//goland:noinspection GoUnhandledErrorResult
-	defer resp.Body.Close()
-	if err := json.NewDecoder(resp.Body).Decode(&categoriesResp); err != nil {
-		return nil, err
+	defer func() {
+		err = errors.Join(err, resp.Body.Close())
+	}()
+	if err = json.NewDecoder(resp.Body).Decode(&categoriesResp); err != nil {
+		return
 	}
-	return categoriesResp.Data, nil
+	data = categoriesResp.Data
+	return
 }
 
-func (f *fireflyAPI) UpdateTransaction(id int, tu *structs.TransactionUpdate) (*structs.TransactionRead, error) {
+func (f *fireflyAPI) UpdateTransaction(id int, tu *structs.TransactionUpdate) (data *structs.TransactionRead, err error) {
 	endpoint := fmt.Sprintf("%s/%d", f.endpoints.transactions, id)
 
-	updateObjBytes, err := json.Marshal(tu)
+	var updateObjBytes []byte
+	updateObjBytes, err = json.Marshal(tu)
 	if err != nil {
-		return nil, err
+		return
 	}
 	log.Println(">> Communicating with Firefly-III...")
-	resp, err := f.request("PUT", endpoint, bytes.NewBuffer(updateObjBytes))
+	var resp *http.Response
+	resp, err = f.request("PUT", endpoint, bytes.NewBuffer(updateObjBytes))
 	if err != nil {
-		return nil, err
+		return
 	} else if resp.StatusCode != http.StatusOK {
-		return nil, errors.New(parseResponseError(resp))
+		err = errors.New(parseResponseError(resp))
+		return
 	}
 
 	var updateResponse struct {
 		Data structs.TransactionRead `json:"data"`
 	}
-	//goland:noinspection GoUnhandledErrorResult
-	defer resp.Body.Close()
+	defer func() {
+		err = errors.Join(err, resp.Body.Close())
+	}()
 	respBytes, _ := io.ReadAll(resp.Body)
-	if err := json.Unmarshal(respBytes, &updateResponse); err != nil {
-		return nil, fmt.Errorf("transactions update #%d: %s", id, err)
+	if err = json.Unmarshal(respBytes, &updateResponse); err != nil {
+		err = fmt.Errorf("transactions update #%d: %w", id, err)
+		return
 	}
-	return &updateResponse.Data, nil
+	data = &updateResponse.Data
+	return
 }
 
 func (f *fireflyAPI) FireflyBaseUrl() string {
@@ -375,7 +402,11 @@ type responseError struct {
 func parseResponseError(r *http.Response) string {
 	var responseError responseError
 
-	defer r.Body.Close()
+	defer func() {
+		if errClose := r.Body.Close(); errClose != nil {
+			log.Printf("WARNING: error closing response body: %v", errClose)
+		}
+	}()
 	respBytes, _ := io.ReadAll(r.Body)
 	if err := json.Unmarshal(respBytes, &responseError); err != nil {
 		return fmt.Sprintf("%s ('%s')", err, string(respBytes))

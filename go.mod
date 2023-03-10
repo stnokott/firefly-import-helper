@@ -1,6 +1,6 @@
 module firefly-iii-fix-ing
 
-go 1.18
+go 1.20
 
 require (
 	github.com/go-co-op/gocron v1.18.1

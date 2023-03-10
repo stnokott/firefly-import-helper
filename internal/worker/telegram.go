@@ -64,9 +64,7 @@ func (b *telegramBot) handleStart(c tele.Context) error {
 
 func (b *telegramBot) handleInlineQueries(c tele.Context) error {
 	log.Println("##### BEGIN CALLBACK ####")
-	defer func() {
-		log.Println("###### END CALLBACK #####")
-	}()
+	defer log.Println("###### END CALLBACK #####")
 	var responseMsg string
 	var editBody string
 
