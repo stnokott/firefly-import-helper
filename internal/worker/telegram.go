@@ -197,6 +197,7 @@ func (b *TelegramBot) transactionToMessageBody(t *structs.TransactionRead, firef
 	return body.String(), nil
 }
 
+// NotifyNewTransaction implements interface transactionNotifier
 func (b *TelegramBot) NotifyNewTransaction(t *structs.TransactionRead, fireflyBaseURL string, categories []structs.CategoryRead) error {
 	if len(t.Attributes.Transactions) == 0 {
 		return nil
@@ -268,6 +269,7 @@ func newTransactionNotification(date string, sourceName string, destName string,
 	}
 }
 
+// NotifyError implements interface transactionNotifier
 func (b *TelegramBot) NotifyError(err error) error {
 	log.Println("ERROR:", err)
 	body := fmt.Sprintf("<b>❗️ Firefly-III-Autoimporter Fehler ❗️</b>\n\n<i>%s</i>", err)
