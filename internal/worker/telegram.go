@@ -14,7 +14,8 @@ import (
 	tele "gopkg.in/telebot.v3"
 )
 
-type telegramBot struct {
+// TelegramBot handles sending Telegram messages and receiving commands.
+type TelegramBot struct {
 	targetChat         *tele.Chat
 	bot                *tele.Bot
 	transactionUpdater transactionUpdater
@@ -26,7 +27,7 @@ type transactionUpdater interface {
 }
 
 // NewBot creates a new telegramBot instance
-func NewBot(token string, chatID int64) (*telegramBot, error) {
+func NewBot(token string, chatID int64) (*TelegramBot, error) {
 	bot, err := tele.NewBot(
 		tele.Settings{
 			Token:  token,
@@ -42,7 +43,7 @@ func NewBot(token string, chatID int64) (*telegramBot, error) {
 		return nil, err
 	}
 
-	telegramBot := &telegramBot{
+	telegramBot := &TelegramBot{
 		targetChat: chat,
 		bot:        bot,
 	}
@@ -54,17 +55,17 @@ func NewBot(token string, chatID int64) (*telegramBot, error) {
 }
 
 // Listen starts the telegram bot. Blocking.
-func (b *telegramBot) Listen() {
+func (b *TelegramBot) Listen() {
 	log.Println("Running Telegram bot...")
 	b.bot.Start()
 }
 
-func (b *telegramBot) handleStart(c tele.Context) error {
+func (b *TelegramBot) handleStart(c tele.Context) error {
 	return c.Send(fmt.Sprintf("Hallo %s!\nDieser Bot ist eingerichtet für Nutzer "+
 		"<a href=\"tg://user?id=%d\">%d</a>.", c.Chat().FirstName, b.targetChat.ID, b.targetChat.ID), tele.ModeHTML)
 }
 
-func (b *telegramBot) handleInlineQueries(c tele.Context) error {
+func (b *TelegramBot) handleInlineQueries(c tele.Context) error {
 	log.Println("##### BEGIN CALLBACK ####")
 	defer log.Println("###### END CALLBACK #####")
 	var responseMsg string
@@ -173,7 +174,7 @@ var months = []string{
 const buttonsPerRow = 3
 const buttonDataDone = "fertig"
 
-func (b *telegramBot) transactionToMessageBody(t *structs.TransactionRead, fireflyBaseURL string) (string, error) {
+func (b *TelegramBot) transactionToMessageBody(t *structs.TransactionRead, fireflyBaseURL string) (string, error) {
 	// assemble transactions
 	transactions := make([]transactionNotification, len(t.Attributes.Transactions))
 	for i, transaction := range t.Attributes.Transactions {
@@ -196,7 +197,7 @@ func (b *telegramBot) transactionToMessageBody(t *structs.TransactionRead, firef
 	return body.String(), nil
 }
 
-func (b *telegramBot) NotifyNewTransaction(t *structs.TransactionRead, fireflyBaseURL string, categories []structs.CategoryRead) error {
+func (b *TelegramBot) NotifyNewTransaction(t *structs.TransactionRead, fireflyBaseURL string, categories []structs.CategoryRead) error {
 	if len(t.Attributes.Transactions) == 0 {
 		return nil
 	}
@@ -267,7 +268,7 @@ func newTransactionNotification(date string, sourceName string, destName string,
 	}
 }
 
-func (b *telegramBot) NotifyError(err error) error {
+func (b *TelegramBot) NotifyError(err error) error {
 	log.Println("ERROR:", err)
 	body := fmt.Sprintf("<b>❗️ Firefly-III-Autoimporter Fehler ❗️</b>\n\n<i>%s</i>", err)
 

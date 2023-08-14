@@ -17,7 +17,7 @@ import (
 // Worker handles commands and interference between components*/
 type Worker struct {
 	fireflyAPI      *fireflyAPI
-	telegramBot     *telegramBot
+	telegramBot     *TelegramBot
 	autoimporter    *autoimport.Manager
 	scheduler       *gocron.Scheduler
 	healthchecksURL string
