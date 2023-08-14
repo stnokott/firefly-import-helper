@@ -55,9 +55,9 @@ func (m *Manager) Import(jsonFilepath string) (err error) {
 	if _, err = io.Copy(fileWriter, fileReader); err != nil {
 		return
 	}
-	defer func() {
-		err = errors.Join(err, bodyWriter.Close())
-	}()
+	if err = errors.Join(err, bodyWriter.Close()); err != nil {
+		return
+	}
 
 	var r *http.Request
 	r, err = http.NewRequest(http.MethodPost, m.url, &bodyBuf)
