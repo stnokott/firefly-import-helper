@@ -144,7 +144,7 @@ func newNotificationParams(id string, fireflyBaseURL string, transactions []tran
 
 var notificationTemplate = template.Must(template.New("telegramNotification").Parse(`
 <b>💸 Neue Firefly-III-Transaktion 💸</b>
-<a href="{{.TransactionHref}}">Transaktion #{{.TransactionId}}</a>
+<a href="{{.TransactionHref}}">Transaktion #{{.TransactionID}}</a>
 <tg-spoiler>{{range .SubTransactions}}
 	✏️ {{.Description}}
 	🏷️ {{.CategoryName}}
