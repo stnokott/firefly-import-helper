@@ -1,3 +1,4 @@
+// Package structs contains the JSON structs for the Firefly API
 package structs
 
 type TransactionUpdate struct {

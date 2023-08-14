@@ -12,20 +12,19 @@ repos:
         pass_filenames: false
       - args:
           - test
-          - -race
           - ./...
         entry: go
         fail_fast: true
-        id: go-test-race
+        id: go-test
         language: golang
-        name: go-test-race
+        name: go-test
         pass_filenames: false
     repo: local
   - hooks:
       - id: golangci-lint
     repo: https://github.com/golangci/golangci-lint
-    rev: v1.51.2
+    rev: v1.54.1
   - hooks:
       - id: commitizen
     repo: https://github.com/commitizen-tools/commitizen
-    rev: v2.42.1
+    rev: 3.6.0

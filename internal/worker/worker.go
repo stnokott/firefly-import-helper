@@ -1,3 +1,4 @@
+// Package worker includes job handlers for Firefly API and Telegram
 package worker
 
 import (
@@ -7,31 +8,38 @@ import (
 	"log"
 	"net/http"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/go-co-op/gocron"
 )
 
-/*Worker handles commands and interference between components*/
+// Worker handles commands and interference between components*/
 type Worker struct {
 	fireflyAPI      *fireflyAPI
-	telegramBot     *telegramBot
+	telegramBot     *TelegramBot
 	autoimporter    *autoimport.Manager
 	scheduler       *gocron.Scheduler
 	healthchecksURL string
 	httpClient      *http.Client
 }
 
-/*AutoimportOptions holds options for the autoimporter*/
+// FireflyOptions holds options for the Firefly III instance
+type FireflyOptions struct {
+	BaseURL     string
+	AccessToken string
+}
+
+// AutoimportOptions holds options for the autoimporter
 type AutoimportOptions struct {
 	URL             string
-	Port            uint
+	Port            int
 	Secret          string
 	CronSchedule    string
 	HealthchecksURL string
 }
 
-/*TelegramOptions holds options for the telegram worker*/
+// TelegramOptions holds options for the telegram worker
 type TelegramOptions struct {
 	AccessToken string
 	ChatID      int64
@@ -39,12 +47,10 @@ type TelegramOptions struct {
 
 const cronTag = "autoimport"
 
-/*NewWorker creates a new worker instance*/
-func NewWorker(fireflyAccessToken string, fireflyBaseURL string, autoimportOptions *AutoimportOptions, telegramOptions *TelegramOptions) (*Worker, error) {
+// NewWorker creates a new worker instance*/
+func NewWorker(fireflyOptions FireflyOptions, autoimportOptions AutoimportOptions, telegramOptions TelegramOptions) (*Worker, error) {
 	// remove trailing slash from Firefly III base URL
-	if fireflyBaseURL[len(fireflyBaseURL)-1:] == "/" {
-		fireflyBaseURL = fireflyBaseURL[:len(fireflyBaseURL)-1]
-	}
+	fireflyOptions.BaseURL = strings.TrimSuffix(fireflyOptions.BaseURL, "/")
 
 	bot, err := NewBot(telegramOptions.AccessToken, telegramOptions.ChatID)
 	if err != nil {
@@ -52,8 +58,7 @@ func NewWorker(fireflyAccessToken string, fireflyBaseURL string, autoimportOptio
 	}
 
 	fireflyAPI := newFireflyAPI(
-		fireflyBaseURL,
-		fireflyAccessToken,
+		fireflyOptions,
 		modules.NewModuleHandler(),
 		bot,
 	)
@@ -90,7 +95,7 @@ func NewWorker(fireflyAccessToken string, fireflyBaseURL string, autoimportOptio
 	return w, nil
 }
 
-/*Autoimport runs the autoimport, messages healthchecks if needed and changes the config files afterwards*/
+// Autoimport runs the autoimport, messages healthchecks if needed and changes the config files afterwards*/
 func (w *Worker) Autoimport() {
 	w.pingHealthchecks(healthchecksStart)
 	log.Println("Running autoimport...")
@@ -111,7 +116,7 @@ func (w *Worker) Autoimport() {
 	}()
 
 	var filepaths []string
-	filepaths, err = w.autoimporter.GetJsonFilePaths()
+	filepaths, err = w.autoimporter.GetJSONFilePaths()
 	if err != nil {
 		return
 	}
@@ -159,7 +164,7 @@ func (w *Worker) getNextAutoimportAsString() string {
 	return jobs[0].NextRun().Format("02.01.2006 15:04:05")
 }
 
-/*Listen starts webserver and ensures a webhook in Firefly exists, pointing to this server*/
+// Listen starts webserver and ensures a webhook in Firefly exists, pointing to this server*/
 func (w *Worker) Listen() error {
 	log.Println("Ensuring webhook exists...")
 	url, err := w.fireflyAPI.createOrUpdateWebhook()

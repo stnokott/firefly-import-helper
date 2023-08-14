@@ -6,17 +6,20 @@
         {
             "label": "Build Docker image",
             "type": "shell",
-            "command": "docker build -t fireflyimporthelper:latest ."
+            "command": "goreleaser release --clean --snapshot --skip-publish",
+            "problemMatcher": []
         },
         {
             "label": "Run Docker container",
             "type": "shell",
-            "command": "docker run --rm --name firefly-import-helper --env-file ${workspaceFolder}/.env-docker -p 8822:8822/tcp -v C:/Users/nftra/Downloads/firefly-iii-autoimport:/configs fireflyimporthelper:latest"
+            "command": "docker run --rm --name firefly-import-helper --env-file ${workspaceFolder}/.env-docker -p 8822:8822/tcp -v ${workspaceFolder}/configs:/configs ghcr.io/stnokott/firefly-import-helper:latest-amd64",
+            "problemMatcher": []
         },
         {
             "label": "Release",
             "type": "shell",
-            "command": "goreleaser release --rm-dist"
+            "command": "goreleaser release --clean",
+            "problemMatcher": []
         }
     ]
 }
