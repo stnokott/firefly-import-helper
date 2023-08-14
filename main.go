@@ -41,7 +41,7 @@ func main() {
 
 	for envKey := range envMap {
 		envValue := os.Getenv(envKey)
-		if envValue == "" && !slices.Contains(envOptionals, envHealthchecksURL) {
+		if envValue == "" && !slices.Contains(envOptionals, envKey) {
 			log.Fatalln("required environment variable", envKey, "not set!")
 		} else {
 			envMap[envKey] = envValue
