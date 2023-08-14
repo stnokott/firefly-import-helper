@@ -17,19 +17,22 @@ import (
 
 const jsonDir = "/configs"
 
+// Manager handles imports and all handling of the results
 type Manager struct {
 	url    string
 	client *http.Client
 }
 
-func NewManager(autoImporterUrl string, autoImporterPort uint, secret string) (*Manager, error) {
+// NewManager creates a new manager instance
+func NewManager(autoImporterURL string, autoImporterPort int, secret string) (*Manager, error) {
 	client := &http.Client{Timeout: 2 * time.Minute}
 	return &Manager{
-		url:    fmt.Sprintf("%s:%d/autoupload?secret=%s", autoImporterUrl, autoImporterPort, secret),
+		url:    fmt.Sprintf("%s:%d/autoupload?secret=%s", autoImporterURL, autoImporterPort, secret),
 		client: client,
 	}, nil
 }
 
+// Import starts the import process, using the provided JSON as config
 func (m *Manager) Import(jsonFilepath string) (err error) {
 	var (
 		bodyBuf    bytes.Buffer
@@ -69,7 +72,8 @@ func (m *Manager) Import(jsonFilepath string) (err error) {
 	if err != nil {
 		return
 	}
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != 200 {
+		// handle erroneous response
 		defer func() {
 			err = errors.Join(err, resp.Body.Close())
 		}()
@@ -82,13 +86,15 @@ func (m *Manager) Import(jsonFilepath string) (err error) {
 		}
 		return
 	}
-	if err = updateJsonDates(jsonFilepath); err != nil {
+	if err = updateJSONDates(jsonFilepath); err != nil {
 		return
 	}
 	return
 }
 
-func (m *Manager) GetJsonFilePaths() ([]string, error) {
+// GetJSONFilePaths returns a slice of filepaths for config files.
+// Each of these can be passed as an argument to Import()
+func (m *Manager) GetJSONFilePaths() ([]string, error) {
 	files, err := os.ReadDir(jsonDir)
 	if err != nil {
 		return nil, err
@@ -107,7 +113,7 @@ func (m *Manager) GetJsonFilePaths() ([]string, error) {
 	return filepaths, nil
 }
 
-type configJson struct {
+type configJSON struct {
 	Version                     int               `json:"version"`
 	Source                      string            `json:"source"`
 	CreatedAt                   string            `json:"created_at"`
@@ -144,23 +150,20 @@ type configJson struct {
 	Conversion                  bool              `json:"conversion"`
 }
 
-func updateJsonDates(jsonPath string) error {
-	body, err := os.ReadFile(jsonPath) //#nosec
+func updateJSONDates(jsonPath string) error {
+	body, err := os.ReadFile(jsonPath)
 	if err != nil {
 		return err
 	}
 
-	var config configJson
+	var config configJSON
 	if err := json.Unmarshal(body, &config); err != nil {
 		return err
 	}
-	config.DateNotBefore = time.Now().AddDate(0, 0, -1).Format("2006-01-02")
+	config.DateNotBefore = time.Now().AddDate(0, 0, -1).Format(time.DateOnly)
 	b, err := json.MarshalIndent(config, "", "    ")
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(jsonPath, b, 0600); err != nil {
-		return err
-	}
-	return nil
+	return os.WriteFile(jsonPath, b, 0600)
 }

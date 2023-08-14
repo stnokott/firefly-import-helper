@@ -38,31 +38,31 @@ type fireflyAPI struct {
 	fireflyAccessToken string
 	targetWebhook      structs.WebhookAttributes
 	moduleHandler      *modules.ModuleHandler
-	notifManager       transactioNotifier
+	notifManager       transactionNotifier
 }
 
-type transactioNotifier interface {
+type transactionNotifier interface {
 	NotifyNewTransaction(t *structs.TransactionRead, fireflyBaseURL string, categories []structs.CategoryRead) error
 }
 
-func newFireflyAPI(fireflyBaseURL string, fireflyAccessToken string, moduleHandler *modules.ModuleHandler, notifManager transactioNotifier) *fireflyAPI {
+func newFireflyAPI(fireflyOptions FireflyOptions, moduleHandler *modules.ModuleHandler, notifManager transactionNotifier) *fireflyAPI {
 	f := fireflyAPI{
-		webhookURL:     fireflyBaseURL + webhookPath,
-		fireflyBaseURL: fireflyBaseURL,
+		webhookURL:     fireflyOptions.BaseURL + webhookPath,
+		fireflyBaseURL: fireflyOptions.BaseURL,
 		endpoints: endpoints{
-			account:      fireflyBaseURL + pathAccounts,
-			transactions: fireflyBaseURL + pathTransaction,
-			webhooks:     fireflyBaseURL + pathWebhooks,
-			categories:   fireflyBaseURL + pathCategories,
+			account:      fireflyOptions.BaseURL + pathAccounts,
+			transactions: fireflyOptions.BaseURL + pathTransaction,
+			webhooks:     fireflyOptions.BaseURL + pathWebhooks,
+			categories:   fireflyOptions.BaseURL + pathCategories,
 		},
-		fireflyAccessToken: fireflyAccessToken,
+		fireflyAccessToken: fireflyOptions.AccessToken,
 		targetWebhook: structs.WebhookAttributes{
 			Active:   true,
 			Title:    "Fix ING transaction descriptions from Importer",
 			Response: "TRANSACTIONS",
 			Delivery: "JSON",
 			Trigger:  "STORE_TRANSACTION",
-			Url:      fireflyBaseURL + webhookPath,
+			Url:      fireflyOptions.BaseURL + webhookPath,
 		},
 		moduleHandler: moduleHandler,
 		notifManager:  notifManager,
@@ -368,10 +368,12 @@ func (f *fireflyAPI) UpdateTransaction(id int, tu *structs.TransactionUpdate) (d
 	return
 }
 
-func (f *fireflyAPI) FireflyBaseUrl() string {
+// FireflyBaseURL implements interface transactionUpdater
+func (f *fireflyAPI) FireflyBaseURL() string {
 	return f.fireflyBaseURL
 }
 
+// SetTransactionCategory implements interface transactionUpdater
 func (f *fireflyAPI) SetTransactionCategory(id int, categoryName string) (*structs.TransactionRead, error) {
 	transaction, err := f.getTransaction(id)
 	if err != nil {
@@ -379,12 +381,12 @@ func (f *fireflyAPI) SetTransactionCategory(id int, categoryName string) (*struc
 	}
 	transactionUpdates := make([]structs.TransactionSplitUpdate, len(transaction.Attributes.Transactions))
 	for i, transactionSplit := range transaction.Attributes.Transactions {
-		journalId, err := strconv.ParseInt(transactionSplit.JournalId, 10, 64)
+		journalID, err := strconv.ParseInt(transactionSplit.JournalId, 10, 64)
 		if err != nil {
 			return nil, err
 		}
 		transactionUpdates[i] = structs.TransactionSplitUpdate{
-			JournalId:    int(journalId),
+			JournalId:    int(journalID),
 			CategoryName: categoryName,
 		}
 	}
@@ -409,15 +411,17 @@ func parseResponseError(r *http.Response) string {
 			log.Printf("WARNING: error closing response body: %v", errClose)
 		}
 	}()
-	respBytes, _ := io.ReadAll(r.Body)
-	if err := json.Unmarshal(respBytes, &responseError); err != nil {
-		return fmt.Sprintf("%s ('%s')", err, string(respBytes))
+	respBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		return fmt.Sprintf("could not read response body: %v", err)
+	}
+	if err = json.Unmarshal(respBytes, &responseError); err != nil {
+		return fmt.Sprintf("could not decode response: %v ('%s')", err, string(respBytes))
 	}
 	if responseError.Message != "" {
 		return responseError.Message
-	} else {
-		return fmt.Sprintf("Unknown error ('%s')", string(respBytes))
 	}
+	return fmt.Sprintf("Unknown error ('%s')", string(respBytes))
 }
 
 func (f *fireflyAPI) request(method string, url string, body io.Reader) (*http.Response, error) {

@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func Test_moduleIngDescriptionFormat_process(t *testing.T) {
+func TestModuleIngDescriptionFormatProcess(t *testing.T) {
 	type args struct {
 		s *structs.TransactionSplitUpdate
 	}

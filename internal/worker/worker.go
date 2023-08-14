@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/go-co-op/gocron"
@@ -23,16 +24,22 @@ type Worker struct {
 	httpClient      *http.Client
 }
 
-// AutoimportOptions holds options for the autoimporter*/
+// FireflyOptions holds options for the Firefly III instance
+type FireflyOptions struct {
+	BaseURL     string
+	AccessToken string
+}
+
+// AutoimportOptions holds options for the autoimporter
 type AutoimportOptions struct {
 	URL             string
-	Port            uint
+	Port            int
 	Secret          string
 	CronSchedule    string
 	HealthchecksURL string
 }
 
-// TelegramOptions holds options for the telegram worker*/
+// TelegramOptions holds options for the telegram worker
 type TelegramOptions struct {
 	AccessToken string
 	ChatID      int64
@@ -41,11 +48,9 @@ type TelegramOptions struct {
 const cronTag = "autoimport"
 
 // NewWorker creates a new worker instance*/
-func NewWorker(fireflyAccessToken string, fireflyBaseURL string, autoimportOptions *AutoimportOptions, telegramOptions *TelegramOptions) (*Worker, error) {
+func NewWorker(fireflyOptions FireflyOptions, autoimportOptions AutoimportOptions, telegramOptions TelegramOptions) (*Worker, error) {
 	// remove trailing slash from Firefly III base URL
-	if fireflyBaseURL[len(fireflyBaseURL)-1:] == "/" {
-		fireflyBaseURL = fireflyBaseURL[:len(fireflyBaseURL)-1]
-	}
+	fireflyOptions.BaseURL = strings.TrimSuffix(fireflyOptions.BaseURL, "/")
 
 	bot, err := NewBot(telegramOptions.AccessToken, telegramOptions.ChatID)
 	if err != nil {
@@ -53,8 +58,7 @@ func NewWorker(fireflyAccessToken string, fireflyBaseURL string, autoimportOptio
 	}
 
 	fireflyAPI := newFireflyAPI(
-		fireflyBaseURL,
-		fireflyAccessToken,
+		fireflyOptions,
 		modules.NewModuleHandler(),
 		bot,
 	)
@@ -112,7 +116,7 @@ func (w *Worker) Autoimport() {
 	}()
 
 	var filepaths []string
-	filepaths, err = w.autoimporter.GetJsonFilePaths()
+	filepaths, err = w.autoimporter.GetJSONFilePaths()
 	if err != nil {
 		return
 	}
