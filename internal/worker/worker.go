@@ -13,7 +13,7 @@ import (
 	"github.com/go-co-op/gocron"
 )
 
-/*Worker handles commands and interference between components*/
+// Worker handles commands and interference between components*/
 type Worker struct {
 	fireflyAPI      *fireflyAPI
 	telegramBot     *telegramBot
@@ -23,7 +23,7 @@ type Worker struct {
 	httpClient      *http.Client
 }
 
-/*AutoimportOptions holds options for the autoimporter*/
+// AutoimportOptions holds options for the autoimporter*/
 type AutoimportOptions struct {
 	URL             string
 	Port            uint
@@ -32,7 +32,7 @@ type AutoimportOptions struct {
 	HealthchecksURL string
 }
 
-/*TelegramOptions holds options for the telegram worker*/
+// TelegramOptions holds options for the telegram worker*/
 type TelegramOptions struct {
 	AccessToken string
 	ChatID      int64
@@ -40,7 +40,7 @@ type TelegramOptions struct {
 
 const cronTag = "autoimport"
 
-/*NewWorker creates a new worker instance*/
+// NewWorker creates a new worker instance*/
 func NewWorker(fireflyAccessToken string, fireflyBaseURL string, autoimportOptions *AutoimportOptions, telegramOptions *TelegramOptions) (*Worker, error) {
 	// remove trailing slash from Firefly III base URL
 	if fireflyBaseURL[len(fireflyBaseURL)-1:] == "/" {
@@ -91,7 +91,7 @@ func NewWorker(fireflyAccessToken string, fireflyBaseURL string, autoimportOptio
 	return w, nil
 }
 
-/*Autoimport runs the autoimport, messages healthchecks if needed and changes the config files afterwards*/
+// Autoimport runs the autoimport, messages healthchecks if needed and changes the config files afterwards*/
 func (w *Worker) Autoimport() {
 	w.pingHealthchecks(healthchecksStart)
 	log.Println("Running autoimport...")
@@ -160,7 +160,7 @@ func (w *Worker) getNextAutoimportAsString() string {
 	return jobs[0].NextRun().Format("02.01.2006 15:04:05")
 }
 
-/*Listen starts webserver and ensures a webhook in Firefly exists, pointing to this server*/
+// Listen starts webserver and ensures a webhook in Firefly exists, pointing to this server*/
 func (w *Worker) Listen() error {
 	log.Println("Ensuring webhook exists...")
 	url, err := w.fireflyAPI.createOrUpdateWebhook()
