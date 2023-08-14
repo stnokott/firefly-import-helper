@@ -16,7 +16,7 @@
         {
             "label": "Release",
             "type": "shell",
-            "command": "goreleaser release --rm-dist"
+            "command": "goreleaser release --clean"
         }
     ]
 }
