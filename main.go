@@ -9,7 +9,7 @@ import (
 	"strconv"
 )
 
-var Version = "v0.0.1"
+var version = "dev"
 
 const (
 	envBaseURL              = "FIREFLY_HTTPS_URL"
@@ -72,7 +72,7 @@ func main() {
 		AccessToken: envMap[envTelegramToken],
 		ChatID:      chatIDInt,
 	}
-	log.Println("Running", Version)
+	log.Println("Running", version)
 	log.Println("//////////SETUP//////////")
 	log.Println()
 	w, err := worker.NewWorker(fireflyOptions, autoImportOptions, telegramOptions)

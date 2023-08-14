@@ -5,36 +5,113 @@ before:
     - go mod tidy
     - go mod verify
     - go generate ./...
+
 builds:
   - env:
       - CGO_ENABLED=0
     goos:
       - linux
-      - windows
+    goarch:
+      - amd64
+      - arm
+      - arm64
+    goarm:
+      - "7"
     binary: app
-    ldflags:
-      - "-X main.Version={{ .Version }}"
-archives:
-  - name_template: >-
-      {{ .ProjectName }}_
-      {{- title .Os }}_
-      {{- if eq .Arch "amd64" }}x86_64
-      {{- else if eq .Arch "386" }}i386
-      {{- else }}{{ .Arch }}{{ end }}
-checksum:
-  name_template: "checksums.txt"
-snapshot:
-  name_template: "{{ incpatch .Version }}-next"
+
 changelog:
   sort: asc
+  abbrev: -1
+  use: github
   filters:
     exclude:
-      - "^docs:"
-      - "^test:"
+      - "^style"
+      - "^test"
+      - "^chore"
+      - "^build\\(dev\\)"
+      - "^Merge"
+
+  groups:
+    - title: Features
+      regexp: "^feat"
+      order: 0
+    - title: Bug Fixes
+      regexp: "^fix"
+      order: 1
+    - title: Documentation
+      regexp: "^docs"
+      order: 4
+    - title: Refactor
+      regexp: "^refactor"
+      order: 3
+    - title: Performance
+      regexp: "^perf"
+      order: 2
+    - title: Dependencies
+      regexp: "^build\\(deps\\)"
+      order: 7
+    - title: Build
+      regexp: "^build"
+      order: 5
+    - title: Pipeline
+      regexp: "^ci"
+      order: 6
+    - title: Others
+      order: 999
+
+archives:
+  - rlcp: true
+    format: zip
+    strip_parent_binary_folder: true
+
 release:
+  target_commitish: "{{ .Commit }}"
   github:
     owner: stnokott
-    name: firefly-import-helper
-  mode: append
+    name: "{{ .ProjectName }}"
+  name_template: "v{{ .Version }}"
+
+dockers:
+  - image_templates:
+      - "ghcr.io/stnokott/{{ .ProjectName }}:latest"
+      - "ghcr.io/stnokott/{{ .ProjectName }}:{{ .Version }}"
+    goos: linux
+    goarch: amd64
+    dockerfile: "Dockerfile"
+    build_flag_templates:
+      - "--pull"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--platform=linux/amd64"
+  - image_templates:
+      - "ghcr.io/stnokott/{{ .ProjectName }}:latest"
+      - "ghcr.io/stnokott/{{ .ProjectName }}:{{ .Version }}"
+    goos: linux
+    goarch: arm
+    goarm: "7"
+    dockerfile: "Dockerfile"
+    build_flag_templates:
+      - "--pull"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--platform=linux/arm/v7"
+  - image_templates:
+      - "ghcr.io/stnokott/{{ .ProjectName }}:latest"
+      - "ghcr.io/stnokott/{{ .ProjectName }}:{{ .Version }}"
+    goos: linux
+    goarch: arm64
+    dockerfile: "Dockerfile"
+    build_flag_templates:
+      - "--pull"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--platform=linux/arm64"
+
 env_files:
   github_token: ~/.config/goreleaser/github_token

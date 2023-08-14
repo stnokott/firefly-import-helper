@@ -10,7 +10,8 @@
 			"request": "launch",
 			"mode": "auto",
 			"program": "${workspaceFolder}/main.go",
-			"envFile": "${workspaceFolder}/.env-docker"
+			"envFile": "${workspaceFolder}/.env-docker",
+			"buildFlags": "-ldflags='-X main.Version=1.0.0'"
 		}
 	]
 }
