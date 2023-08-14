@@ -12,6 +12,8 @@ builds:
       - linux
       - windows
     binary: app
+    ldflags:
+      - "-X main.Version={{ .Version }}"
 archives:
   - name_template: >-
       {{ .ProjectName }}_

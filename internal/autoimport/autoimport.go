@@ -1,3 +1,4 @@
+// Package autoimport manages scheduling and basic API interfacing
 package autoimport
 
 import (

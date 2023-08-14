@@ -1,3 +1,5 @@
+// Package modules contains the set of import handlers.
+// Each handler can modify a transaction passing through it.
 package modules
 
 import (

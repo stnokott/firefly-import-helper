@@ -1,7 +1,7 @@
+// Package main parses environment variables and runs the main process
 package main
 
 import (
-	"firefly-iii-fix-ing/internal/util"
 	"firefly-iii-fix-ing/internal/worker"
 	"log"
 	"os"
@@ -9,6 +9,8 @@ import (
 
 	"golang.org/x/exp/slices"
 )
+
+var Version = "v0.0.1"
 
 const (
 	envBaseURL              = "FIREFLY_HTTPS_URL"
@@ -67,7 +69,7 @@ func main() {
 		AccessToken: envMap[envTelegramToken],
 		ChatID:      chatIdInt,
 	}
-	log.Println("Running", util.Version)
+	log.Println("Running", Version)
 	log.Println("#########################")
 	log.Println("###       SETUP       ###")
 	log.Println("#########################")

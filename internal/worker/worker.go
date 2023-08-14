@@ -1,3 +1,4 @@
+// Package worker includes job handlers for Firefly API and Telegram
 package worker
 
 import (
