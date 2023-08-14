@@ -10,6 +10,15 @@ repos:
         language: golang
         name: go-mod-tidy
         pass_filenames: false
+      - args:
+          - test
+          - ./...
+        entry: go
+        fail_fast: true
+        id: go-test
+        language: golang
+        name: go-test
+        pass_filenames: false
     repo: local
   - hooks:
       - id: golangci-lint
