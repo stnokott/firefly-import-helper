@@ -12,7 +12,7 @@
         {
             "label": "Run Docker container",
             "type": "shell",
-            "command": "docker run --rm --name firefly-import-helper --env-file ${workspaceFolder}/.env-docker -p 8822:8822/tcp -v C:/Users/nftra/Downloads/firefly-iii-autoimport:/configs ghcr.io/stnokott/firefly-iii-fix-ing:latest",
+            "command": "docker run --rm --name firefly-import-helper --env-file ${workspaceFolder}/.env-docker -p 8822:8822/tcp -v ${workspaceFolder}/configs:/configs ghcr.io/stnokott/firefly-import-helper:latest-amd64",
             "problemMatcher": []
         },
         {
