@@ -10,35 +10,37 @@ import (
 	"golang.org/x/exp/slices"
 )
 
-const envBaseUrl = "FIREFLY_HTTPS_URL"
-const envAccessToken = "FIREFLY_ACCESS_TOKEN"
-const envAutoimporterUrl = "AUTOIMPORTER_URL"
-const envAutoimporterPort = "AUTOIMPORTER_PORT"
-const envAutoimporterSecret = "AUTOIMPORTER_SECRET"
-const envAutoimporterSchedule = "AUTOIMPORTER_CRON_SCHEDULE"
-const envTelegramToken = "TELEGRAM_ACCESS_TOKEN"
-const envTelegramChatId = "TELEGRAM_CHAT_ID"
-const envHealthchecksUrl = "HEALTHCHECKS_URL"
+const (
+	envBaseURL              = "FIREFLY_HTTPS_URL"
+	envAccessToken          = "FIREFLY_ACCESS_TOKEN"
+	envAutoimporterURL      = "AUTOIMPORTER_URL"
+	envAutoimporterPort     = "AUTOIMPORTER_PORT"
+	envAutoimporterSecret   = "AUTOIMPORTER_SECRET"
+	envAutoimporterSchedule = "AUTOIMPORTER_CRON_SCHEDULE"
+	envTelegramToken        = "TELEGRAM_ACCESS_TOKEN"
+	envTelegramChatID       = "TELEGRAM_CHAT_ID"
+	envHealthchecksURL      = "HEALTHCHECKS_URL"
+)
 
 func main() {
 	envMap := map[string]string{
-		envBaseUrl:              "",
+		envBaseURL:              "",
 		envAccessToken:          "",
 		envTelegramToken:        "",
-		envTelegramChatId:       "",
-		envAutoimporterUrl:      "",
+		envTelegramChatID:       "",
+		envAutoimporterURL:      "",
 		envAutoimporterPort:     "",
 		envAutoimporterSecret:   "",
 		envAutoimporterSchedule: "",
-		envHealthchecksUrl:      "",
+		envHealthchecksURL:      "",
 	}
 	envOptionals := []string{
-		envHealthchecksUrl,
+		envHealthchecksURL,
 	}
 
 	for envKey := range envMap {
 		envValue := os.Getenv(envKey)
-		if envValue == "" && !slices.Contains(envOptionals, envHealthchecksUrl) {
+		if envValue == "" && !slices.Contains(envOptionals, envHealthchecksURL) {
 			log.Fatalln("required environment variable", envKey, "not set!")
 		} else {
 			envMap[envKey] = envValue
@@ -50,16 +52,16 @@ func main() {
 		log.Fatalf("could not parse %s = %s as int", envAutoimporterPort, envMap[envAutoimporterPort])
 	}
 	autoImportOptions := worker.AutoimportOptions{
-		URL:             envMap[envAutoimporterUrl],
+		URL:             envMap[envAutoimporterURL],
 		Port:            uint(autoImporterPortInt),
 		Secret:          envMap[envAutoimporterSecret],
 		CronSchedule:    envMap[envAutoimporterSchedule],
-		HealthchecksURL: envMap[envHealthchecksUrl],
+		HealthchecksURL: envMap[envHealthchecksURL],
 	}
 
-	chatIdInt, err := strconv.ParseInt(envMap[envTelegramChatId], 10, 64)
+	chatIdInt, err := strconv.ParseInt(envMap[envTelegramChatID], 10, 64)
 	if err != nil {
-		log.Fatalf("could not parse %s = %s as int", envTelegramChatId, envMap[envTelegramChatId])
+		log.Fatalf("could not parse %s = %s as int", envTelegramChatID, envMap[envTelegramChatID])
 	}
 	telegramOptions := worker.TelegramOptions{
 		AccessToken: envMap[envTelegramToken],
@@ -70,7 +72,7 @@ func main() {
 	log.Println("###       SETUP       ###")
 	log.Println("#########################")
 	log.Println()
-	w, err := worker.NewWorker(envMap[envAccessToken], envMap[envBaseUrl], &autoImportOptions, &telegramOptions)
+	w, err := worker.NewWorker(envMap[envAccessToken], envMap[envBaseURL], &autoImportOptions, &telegramOptions)
 	if err != nil {
 		log.Fatalln(err)
 	}

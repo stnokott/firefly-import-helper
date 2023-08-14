@@ -14,12 +14,14 @@ import (
 	"time"
 )
 
-const port = 8822
-const webhookPath = "/wh_fix_ing"
-const pathAccounts = "/api/v1/accounts"
-const pathTransaction = "/api/v1/transactions"
-const pathWebhooks = "/api/v1/webhooks"
-const pathCategories = "/api/v1/categories"
+const (
+	port            = 8822
+	webhookPath     = "/wh_fix_ing"
+	pathAccounts    = "/api/v1/accounts"
+	pathTransaction = "/api/v1/transactions"
+	pathWebhooks    = "/api/v1/webhooks"
+	pathCategories  = "/api/v1/categories"
+)
 
 type endpoints struct {
 	account      string
