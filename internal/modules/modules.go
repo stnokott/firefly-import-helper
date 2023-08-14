@@ -148,7 +148,7 @@ func (m *modulePaypalDescriptionFormat) shouldReturnOnSuccess() bool {
 	return true
 }
 
-var regexPaypalDescription = regexp.MustCompile(`^PP\.\d{4}\.PP \. .+, Ihr (Einkauf bei .+)$`)
+var regexPaypalDescription = regexp.MustCompile(`^\d+ PP\.\d{4}\.PP \. .+, Ihr (Einkauf bei.+)$`)
 
 func (m *modulePaypalDescriptionFormat) process(s *structs.TransactionSplitUpdate) (*structs.TransactionSplitUpdate, error) {
 	matches := regexPaypalDescription.FindStringSubmatch(s.Description)
