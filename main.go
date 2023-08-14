@@ -5,9 +5,8 @@ import (
 	"firefly-iii-fix-ing/internal/worker"
 	"log"
 	"os"
+	"slices"
 	"strconv"
-
-	"golang.org/x/exp/slices"
 )
 
 var Version = "v0.0.1"
