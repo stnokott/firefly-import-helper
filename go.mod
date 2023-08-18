@@ -3,7 +3,7 @@ module firefly-iii-fix-ing
 go 1.21
 
 require (
-	github.com/go-co-op/gocron v1.28.3
+	github.com/go-co-op/gocron v1.31.2
 	gopkg.in/telebot.v3 v3.1.3
 )
 
