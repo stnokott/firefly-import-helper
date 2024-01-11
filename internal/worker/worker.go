@@ -164,7 +164,7 @@ func (w *Worker) getNextAutoimportAsString() string {
 	return jobs[0].NextRun().Format("02.01.2006 15:04:05")
 }
 
-// Listen starts webserver and ensures a webhook in Firefly exists, pointing to this server*/
+// Listen starts webserver and ensures a webhook in Firefly exists, pointing to this server
 func (w *Worker) Listen() error {
 	log.Println("Ensuring webhook exists...")
 	url, err := w.fireflyAPI.createOrUpdateWebhook()
