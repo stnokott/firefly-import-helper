@@ -220,6 +220,7 @@ func (f *fireflyAPI) findWebhookByTitle() (wh *structs.WebhookRead, err error) {
 		return
 	}
 	if resp.StatusCode == http.StatusNotFound {
+		err = errors.New("404 not found")
 		return
 	} else if resp.StatusCode != http.StatusOK {
 		err = fmt.Errorf("got invalid status code %d", resp.StatusCode)
@@ -286,6 +287,11 @@ func (f *fireflyAPI) checkAndUpdateTransaction(t structs.WhTransactionRead) erro
 		categories = []structs.CategoryRead{}
 		log.Println("WARNING: could not retrieve category names:", err)
 	}
+	if len(categories) > 0 {
+		log.Println(">> categories already set, not sending notification")
+		return nil
+	}
+
 	log.Println(">> Sending notification...")
 	err = f.notifManager.NotifyNewTransaction(resultTransaction, f.fireflyBaseURL, categories)
 	if err == nil {
