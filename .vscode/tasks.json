@@ -6,7 +6,7 @@
         {
             "label": "Build Docker image",
             "type": "shell",
-            "command": "goreleaser release --clean --snapshot --skip-publish",
+            "command": "goreleaser release --clean --snapshot --skip=publish",
             "problemMatcher": []
         },
         {
