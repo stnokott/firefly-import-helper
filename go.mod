@@ -4,7 +4,7 @@ go 1.21
 
 require (
 	github.com/go-co-op/gocron v1.37.0
-	gopkg.in/telebot.v3 v3.1.3
+	gopkg.in/telebot.v3 v3.2.1
 )
 
 require (
