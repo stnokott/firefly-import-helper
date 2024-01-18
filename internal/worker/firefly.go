@@ -282,14 +282,16 @@ func (f *fireflyAPI) checkAndUpdateTransaction(t structs.WhTransactionRead) erro
 		}
 		resultTransaction = updateResponse
 	}
+
+	if resultTransaction.Attributes.Transactions[0].CategoryName != "" {
+		log.Println(">> categories already set, not sending notification")
+		return nil
+	}
+
 	categories, err := f.getCategories()
 	if err != nil {
 		categories = []structs.CategoryRead{}
 		log.Println("WARNING: could not retrieve category names:", err)
-	}
-	if len(categories) > 0 {
-		log.Println(">> categories already set, not sending notification")
-		return nil
 	}
 
 	log.Println(">> Sending notification...")
