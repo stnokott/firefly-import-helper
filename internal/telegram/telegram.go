@@ -50,7 +50,7 @@ func (b *bot) Run(ctx context.Context) error {
 			*Hello\!*
 			Test message from Bot v2\!
 		`,
-		ReplyMarkup: makeInlineKeyboard([]string{"A", "B", "C"}, ""),
+		ReplyMarkup: buildInlineKeyboard([]string{"A", "B", "C"}, ""),
 	})
 	if err != nil {
 		return err
@@ -81,14 +81,14 @@ func callbackQueryDataHandler(ctx context.Context, bot *telebot.Bot, update *tel
 		ChatID:          attachedMessage.Message.Chat.ID,
 		MessageID:       attachedMessage.Message.ID,
 		InlineMessageID: update.CallbackQuery.InlineMessageID,
-		ReplyMarkup:     makeInlineKeyboard([]string{"A", "B", "C"}, selectedCategory),
+		ReplyMarkup:     buildInlineKeyboard([]string{"A", "B", "C"}, selectedCategory),
 	})
 	if err != nil {
 		slog.Error("failed to edit message after callback: " + err.Error())
 	}
 }
 
-func makeInlineKeyboard(options []string, selectedOption string) telemodels.InlineKeyboardMarkup {
+func buildInlineKeyboard(options []string, selectedOption string) telemodels.InlineKeyboardMarkup {
 	cols := 3
 	var buttons [][]telemodels.InlineKeyboardButton
 	for i := 0; i < len(options); i += cols {
