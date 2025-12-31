@@ -77,6 +77,19 @@ const (
 	TransactionTypePropertyWithdrawal     TransactionTypeProperty = "withdrawal"
 )
 
+// Defines values for UserBlockedCodeProperty.
+const (
+	UserBlockedCodePropertyEmailChanged UserBlockedCodeProperty = "email_changed"
+	UserBlockedCodePropertyLessThannil  UserBlockedCodeProperty = "<nil>"
+)
+
+// Defines values for UserRoleProperty.
+const (
+	UserRolePropertyDemo        UserRoleProperty = "demo"
+	UserRolePropertyLessThannil UserRoleProperty = "<nil>"
+	UserRolePropertyOwner       UserRoleProperty = "owner"
+)
+
 // Defines values for WebhookDelivery.
 const (
 	JSON WebhookDelivery = "JSON"
@@ -150,6 +163,31 @@ type AttachmentRead struct {
 type BadRequestResponse struct {
 	Exception *string `json:"exception,omitempty"`
 	Message   *string `json:"message,omitempty"`
+}
+
+// CronResult defines model for CronResult.
+type CronResult struct {
+	AutoBudgets           *CronResultRow `json:"auto_budgets,omitempty"`
+	RecurringTransactions *CronResultRow `json:"recurring_transactions,omitempty"`
+	Telemetry             *CronResultRow `json:"telemetry,omitempty"`
+}
+
+// CronResultRow defines model for CronResultRow.
+type CronResultRow struct {
+	// JobErrored If the cron job ran into some kind of an error, this value will be true.
+	JobErrored nullable.Nullable[bool] `json:"job_errored,omitempty"`
+
+	// JobFired This value tells you if this specific cron job actually fired. It may not fire. Some cron jobs
+	// only fire every 24 hours, for example.
+	JobFired nullable.Nullable[bool] `json:"job_fired,omitempty"`
+
+	// JobSucceeded This value tells you if this specific cron job actually did something. The job may fire but not
+	// change anything.
+	JobSucceeded nullable.Nullable[bool] `json:"job_succeeded,omitempty"`
+
+	// Message If the cron job ran into some kind of an error, this value will be the error message. The success message
+	// if the job actually ran OK.
+	Message nullable.Nullable[string] `json:"message,omitempty"`
 }
 
 // InternalExceptionResponse defines model for InternalExceptionResponse.
@@ -251,6 +289,18 @@ type PiggyBankEventRead struct {
 
 	// Type Immutable value
 	Type string `json:"type"`
+}
+
+// SystemInfo defines model for SystemInfo.
+type SystemInfo struct {
+	Data *struct {
+		// ApiVersion Same value as the version field.
+		ApiVersion *string `json:"api_version,omitempty"`
+		Driver     *string `json:"driver,omitempty"`
+		Os         *string `json:"os,omitempty"`
+		PhpVersion *string `json:"php_version,omitempty"`
+		Version    *string `json:"version,omitempty"`
+	} `json:"data,omitempty"`
 }
 
 // Transaction defines model for Transaction.
@@ -798,6 +848,44 @@ type UnauthenticatedResponse struct {
 	Message   *string `json:"message,omitempty"`
 }
 
+// User defines model for User.
+type User struct {
+	// Blocked Boolean to indicate if the user is blocked.
+	Blocked *bool `json:"blocked,omitempty"`
+
+	// BlockedCode If you say the user must be blocked, this will be the reason code.
+	BlockedCode nullable.Nullable[UserBlockedCodeProperty] `json:"blocked_code,omitempty"`
+	CreatedAt   *time.Time                                 `json:"created_at,omitempty"`
+
+	// Email The new users email address.
+	Email openapi_types.Email `json:"email"`
+
+	// Role Role for the user. Can be empty or omitted.
+	Role      nullable.Nullable[UserRoleProperty] `json:"role,omitempty"`
+	UpdatedAt *time.Time                          `json:"updated_at,omitempty"`
+}
+
+// UserBlockedCodeProperty If you say the user must be blocked, this will be the reason code.
+type UserBlockedCodeProperty string
+
+// UserRead defines model for UserRead.
+type UserRead struct {
+	Attributes User       `json:"attributes"`
+	Id         string     `json:"id"`
+	Links      ObjectLink `json:"links"`
+
+	// Type Immutable value
+	Type string `json:"type"`
+}
+
+// UserRoleProperty Role for the user. Can be empty or omitted.
+type UserRoleProperty string
+
+// UserSingle defines model for UserSingle.
+type UserSingle struct {
+	Data UserRead `json:"data"`
+}
+
 // ValidationErrorResponse defines model for ValidationErrorResponse.
 type ValidationErrorResponse struct {
 	Errors *struct {
@@ -987,6 +1075,32 @@ type WebhookUpdate struct {
 
 	// Url The URL of the webhook. Has to start with `https`.
 	Url *string `json:"url,omitempty"`
+}
+
+// GetAboutParams defines parameters for GetAbout.
+type GetAboutParams struct {
+	// XTraceId Unique identifier associated with this request.
+	XTraceId *openapi_types.UUID `json:"X-Trace-Id,omitempty"`
+}
+
+// GetCurrentUserParams defines parameters for GetCurrentUser.
+type GetCurrentUserParams struct {
+	// XTraceId Unique identifier associated with this request.
+	XTraceId *openapi_types.UUID `json:"X-Trace-Id,omitempty"`
+}
+
+// GetCronParams defines parameters for GetCron.
+type GetCronParams struct {
+	// Date A date formatted YYYY-MM-DD. This can be used to make the cron job pretend it's running
+	// on another day.
+	Date *openapi_types.Date `form:"date,omitempty" json:"date,omitempty"`
+
+	// Force Forces the cron job to fire, regardless of whether it has fired before. This may result
+	// in double transactions or weird budgets, so be careful.
+	Force *bool `form:"force,omitempty" json:"force,omitempty"`
+
+	// XTraceId Unique identifier associated with this request.
+	XTraceId *openapi_types.UUID `json:"X-Trace-Id,omitempty"`
 }
 
 // DeleteTransactionJournalParams defines parameters for DeleteTransactionJournal.
@@ -1269,6 +1383,15 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
+	// GetAbout request
+	GetAbout(ctx context.Context, params *GetAboutParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetCurrentUser request
+	GetCurrentUser(ctx context.Context, params *GetCurrentUserParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetCron request
+	GetCron(ctx context.Context, cliToken string, params *GetCronParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// DeleteTransactionJournal request
 	DeleteTransactionJournal(ctx context.Context, id string, params *DeleteTransactionJournalParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1353,6 +1476,42 @@ type ClientInterface interface {
 
 	// TriggerTransactionWebhook request
 	TriggerTransactionWebhook(ctx context.Context, id string, transactionId string, params *TriggerTransactionWebhookParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+}
+
+func (c *Client) GetAbout(ctx context.Context, params *GetAboutParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAboutRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetCurrentUser(ctx context.Context, params *GetCurrentUserParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetCurrentUserRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetCron(ctx context.Context, cliToken string, params *GetCronParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetCronRequest(c.Server, cliToken, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
 }
 
 func (c *Client) DeleteTransactionJournal(ctx context.Context, id string, params *DeleteTransactionJournalParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -1725,6 +1884,177 @@ func (c *Client) TriggerTransactionWebhook(ctx context.Context, id string, trans
 		return nil, err
 	}
 	return c.Client.Do(req)
+}
+
+// NewGetAboutRequest generates requests for GetAbout
+func NewGetAboutRequest(server string, params *GetAboutParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/about")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.XTraceId != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Trace-Id", runtime.ParamLocationHeader, *params.XTraceId)
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-Trace-Id", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewGetCurrentUserRequest generates requests for GetCurrentUser
+func NewGetCurrentUserRequest(server string, params *GetCurrentUserParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/about/user")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.XTraceId != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Trace-Id", runtime.ParamLocationHeader, *params.XTraceId)
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-Trace-Id", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewGetCronRequest generates requests for GetCron
+func NewGetCronRequest(server string, cliToken string, params *GetCronParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "cliToken", runtime.ParamLocationPath, cliToken)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/cron/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Date != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "date", runtime.ParamLocationQuery, *params.Date); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Force != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "force", runtime.ParamLocationQuery, *params.Force); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.XTraceId != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Trace-Id", runtime.ParamLocationHeader, *params.XTraceId)
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-Trace-Id", headerParam0)
+		}
+
+	}
+
+	return req, nil
 }
 
 // NewDeleteTransactionJournalRequest generates requests for DeleteTransactionJournal
@@ -3297,6 +3627,15 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
+	// GetAboutWithResponse request
+	GetAboutWithResponse(ctx context.Context, params *GetAboutParams, reqEditors ...RequestEditorFn) (*GetAboutResponse, error)
+
+	// GetCurrentUserWithResponse request
+	GetCurrentUserWithResponse(ctx context.Context, params *GetCurrentUserParams, reqEditors ...RequestEditorFn) (*GetCurrentUserResponse, error)
+
+	// GetCronWithResponse request
+	GetCronWithResponse(ctx context.Context, cliToken string, params *GetCronParams, reqEditors ...RequestEditorFn) (*GetCronResponse, error)
+
 	// DeleteTransactionJournalWithResponse request
 	DeleteTransactionJournalWithResponse(ctx context.Context, id string, params *DeleteTransactionJournalParams, reqEditors ...RequestEditorFn) (*DeleteTransactionJournalResponse, error)
 
@@ -3381,6 +3720,85 @@ type ClientWithResponsesInterface interface {
 
 	// TriggerTransactionWebhookWithResponse request
 	TriggerTransactionWebhookWithResponse(ctx context.Context, id string, transactionId string, params *TriggerTransactionWebhookParams, reqEditors ...RequestEditorFn) (*TriggerTransactionWebhookResponse, error)
+}
+
+type GetAboutResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SystemInfo
+	JSON400      *BadRequestResponse
+	JSON401      *UnauthenticatedResponse
+	JSON404      *NotFoundResponse
+	JSON500      *InternalExceptionResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetAboutResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetAboutResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetCurrentUserResponse struct {
+	Body                     []byte
+	HTTPResponse             *http.Response
+	ApplicationvndApiJSON200 *UserSingle
+	JSON400                  *BadRequestResponse
+	JSON401                  *UnauthenticatedResponse
+	JSON404                  *NotFoundResponse
+	JSON500                  *InternalExceptionResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetCurrentUserResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetCurrentUserResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetCronResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *CronResult
+	JSON400      *BadRequestResponse
+	JSON401      *UnauthenticatedResponse
+	JSON404      *NotFoundResponse
+	JSON422      *ValidationErrorResponse
+	JSON500      *InternalExceptionResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetCronResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetCronResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
 }
 
 type DeleteTransactionJournalResponse struct {
@@ -3976,6 +4394,33 @@ func (r TriggerTransactionWebhookResponse) StatusCode() int {
 	return 0
 }
 
+// GetAboutWithResponse request returning *GetAboutResponse
+func (c *ClientWithResponses) GetAboutWithResponse(ctx context.Context, params *GetAboutParams, reqEditors ...RequestEditorFn) (*GetAboutResponse, error) {
+	rsp, err := c.GetAbout(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetAboutResponse(rsp)
+}
+
+// GetCurrentUserWithResponse request returning *GetCurrentUserResponse
+func (c *ClientWithResponses) GetCurrentUserWithResponse(ctx context.Context, params *GetCurrentUserParams, reqEditors ...RequestEditorFn) (*GetCurrentUserResponse, error) {
+	rsp, err := c.GetCurrentUser(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetCurrentUserResponse(rsp)
+}
+
+// GetCronWithResponse request returning *GetCronResponse
+func (c *ClientWithResponses) GetCronWithResponse(ctx context.Context, cliToken string, params *GetCronParams, reqEditors ...RequestEditorFn) (*GetCronResponse, error) {
+	rsp, err := c.GetCron(ctx, cliToken, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetCronResponse(rsp)
+}
+
 // DeleteTransactionJournalWithResponse request returning *DeleteTransactionJournalResponse
 func (c *ClientWithResponses) DeleteTransactionJournalWithResponse(ctx context.Context, id string, params *DeleteTransactionJournalParams, reqEditors ...RequestEditorFn) (*DeleteTransactionJournalResponse, error) {
 	rsp, err := c.DeleteTransactionJournal(ctx, id, params, reqEditors...)
@@ -4245,6 +4690,175 @@ func (c *ClientWithResponses) TriggerTransactionWebhookWithResponse(ctx context.
 		return nil, err
 	}
 	return ParseTriggerTransactionWebhookResponse(rsp)
+}
+
+// ParseGetAboutResponse parses an HTTP response from a GetAboutWithResponse call
+func ParseGetAboutResponse(rsp *http.Response) (*GetAboutResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetAboutResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SystemInfo
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequestResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest UnauthenticatedResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFoundResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalExceptionResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetCurrentUserResponse parses an HTTP response from a GetCurrentUserWithResponse call
+func ParseGetCurrentUserResponse(rsp *http.Response) (*GetCurrentUserResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetCurrentUserResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest UserSingle
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationvndApiJSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequestResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest UnauthenticatedResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFoundResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalExceptionResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetCronResponse parses an HTTP response from a GetCronWithResponse call
+func ParseGetCronResponse(rsp *http.Response) (*GetCronResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetCronResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CronResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequestResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest UnauthenticatedResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFoundResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ValidationErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalExceptionResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
 }
 
 // ParseDeleteTransactionJournalResponse parses an HTTP response from a DeleteTransactionJournalWithResponse call
