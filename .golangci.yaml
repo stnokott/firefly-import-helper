@@ -1,0 +1,57 @@
+version: "2"
+
+run:
+  timeout: "3m"
+linters:
+  default: none
+  enable:
+    - errcheck
+    - gocritic
+    - govet
+    - revive
+    - ineffassign
+    - staticcheck
+    - unused
+    - bodyclose
+    - decorder
+    - goconst
+    - nilerr
+    - gocyclo
+    - importas
+
+  settings:
+    revive:
+      rules:
+      - name: exported
+        severity: warning
+        # disabled: false
+        # exclude: [""]
+        arguments:
+          - "check-private-receivers"
+          # - "disable-stuttering-check"
+          - "say-repetitive-instead-of-stutters"
+          - "check-public-interface"
+          # - "disable-checks-on-constants"
+          - "disable-checks-on-functions"
+          - "disable-checks-on-methods"
+          # - "disable-checks-on-types"
+          # - "disable-checks-on-variables"
+    errcheck:
+      check-blank: true
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment
+    goconst:
+      match-constant: true
+      min-len: 3
+      min-occurrences: 2
+    gocritic:
+      disabled-checks:
+        - appendAssign
+
+  exclusions:
+    rules:
+      - path: '(.+)_test\.go'
+        linters:
+          - goconst

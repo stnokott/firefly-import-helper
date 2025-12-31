@@ -1,3 +1,6 @@
+# direnv cache
+.direnv
+
 .env-docker
 remote-targets.xml
 
