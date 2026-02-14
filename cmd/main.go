@@ -2,26 +2,41 @@ package main
 
 import (
 	"context"
-	"log/slog"
+	"fmt"
 	"os"
 	"os/signal"
+	"strings"
+	"time"
 
+	"github.com/stnokott/firefly-import-helper/internal/client"
+	"github.com/stnokott/firefly-import-helper/internal/importer"
 	"github.com/stnokott/firefly-import-helper/internal/log"
+	"github.com/stnokott/firefly-import-helper/internal/server"
 	"github.com/stnokott/firefly-import-helper/internal/telegram"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
-	fireflyAPIURL      = "http://firefly.local/api"
-	fireflyAccessToken = `eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiIxMTEwIiwianRpIjoiYTE1MTI4MGIxY2QxZGE2YzNiZTg1YTY1MzQxMmJjYjU0Yjk0Y2QxNzYwYzA0ZTkxMDlmNjhhMDQ3YWU0YjQxNDVjMDNiYzNmZGZkNGQ5OTUiLCJpYXQiOjE3NjY4NTAxNDQuMzg3MTI5LCJuYmYiOjE3NjY4NTAxNDQuMzg3MTM1LCJleHAiOjE3OTgzODYxNDMuNjg4NjY2LCJzdWIiOiIxIiwic2NvcGVzIjpbXX0.G7B_ZtbcQbIlWj9_0Kkb-J1QeFEwvYtoN2aKIg9_-VCOCAaPKFhrPKHXkLpTnH5ayH05KfK_-xhjUPFWs-RKrxo1leI5xUrgN5Y0H-B_SBNQPRKoRn8WWHHxb4LtiRDZA85fnH79Z_B-5xUEzFImljduErBAdDtCezezOqAwO_pL0wsJ-iaSjN-O6HwYiEgH3-mvzSwD6ABDOEaEIVtjbyZ-uh-TKNsmAFaP3VHXsu9iwJMJVYTvIiQ1YQ6XolYP18b16C8hnC7JVJageIsLjKLOqBaJPc8EumI0dFhMTAUGzcRUh6aKDYzVZzOLKaqgrdlp1s0lb5X6bZIp9WuMa5LKNq5hp57ZNNlkNszdPyd-OSQLudCj0ykEKyfESmM-CN-m153fil29Zz3GLBlMajeTNM16qrCaIExtJGFFX1Ee47T-_YnUiQRls9d2dFljXhoPgXETFgjt7OIxqhhVioWRdw9RadHd9h5mLKoNz_dvJ0QcPHHxOtsdOeSLr2LBA8312KzfWnvulmAQeyTnXZeVsXqPmWiID08COIY6XtoiGZH9bf1BIKtdBwDAy-FhTn656naCYdHLELecdUcf99gHOIzcQHXuLhujzNPkQvdXEF-sZgPYSzOEgc7dnybtXxTEu_tnBEqP2AJjfic53WCOmVZcL6ry2Tph6mYMWnE`
-	telegramBotToken   = "5076697375:AAHnS4OeS7UobqT5eY88lOH9Tef13pXBrVs"
-	telegramChatID     = "725149271"
+	telegramBotToken      = "5076697375:AAHnS4OeS7UobqT5eY88lOH9Tef13pXBrVs"
+	telegramChatID        = "725149271"
+	fireflyBaseURL        = "http://firefly.local" // TODO: parse and normalize URL first to account for possible trailing slash
+	fireflyAccessToken    = `` // TODO: replace me
+	fireflyImporterURL    = "http://192.168.178.31:8081"
+	fireflyImporterSecret = `W2reJoKxD8CqUB522n25`
 )
 
+// var fireflyImporterConfigs = []string{"lunchflow.json"}
+
 func main() {
-	log.Setup()
+	logLevel := log.Info
+	if strings.ToLower(os.Getenv("DEBUG")) == "true" {
+		logLevel = log.Debug
+	}
+	log.SetDefaultLevel(logLevel)
 
 	if err := run(); err != nil {
-		slog.Error(err.Error())
+		fmt.Println(err)
+		os.Exit(1)
 		return
 	}
 }
@@ -30,26 +45,42 @@ func run() error {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
 	defer cancel()
 
-	// c, err := client.NewClientWithResponses(
-	// 	fireflyAPIURL,
-	// 	client.WithAccessToken(accessToken),
-	// 	client.WithRequestLogger(),
-	// )
-	// if err != nil {
-	// 	return fmt.Errorf("could not create API client: %w", err)
-	// }
-	//
-	// if err := runner.Run(ctx, c); err != nil {
-	// 	return err
-	// }
+	// create Firefly API client
+	c, err := client.NewClientWithResponses(
+		fireflyBaseURL+"/api",
+		client.WithAccessToken(fireflyAccessToken),
+		client.WithRequestLogger(log.For("api-client")),
+	)
+	if err != nil {
+		return fmt.Errorf("could not create API client: %w", err)
+	}
+	// prepare webhook server
+	if err = server.Setup(ctx, c); err != nil {
+		return fmt.Errorf("could not setup webhook server: %w", err)
+	}
 
-	bot, err := telegram.NewBot(telegramBotToken, telegramChatID)
+	whChan := make(chan *server.WebhookResponse, 1)
+	eg, ctxEg := errgroup.WithContext(ctx)
+	// start webhook listener server
+	eg.Go(func() error {
+		return server.Run(ctxEg, whChan)
+	})
+
+	// create and start telegram bot
+	bot, err := telegram.NewBot(telegramBotToken, telegramChatID, fireflyBaseURL)
 	if err != nil {
 		return err
 	}
-	if err = bot.Run(ctx); err != nil {
-		return err
-	}
+	eg.Go(func() error {
+		bot.Run(ctxEg, whChan)
+		return nil
+	})
 
-	return nil
+	// run import
+	eg.Go(func() error {
+		time.Sleep(2 * time.Second)
+		return importer.Run(ctxEg, fireflyImporterURL, fireflyImporterSecret, fireflyAccessToken, "./configs/lunchflow.json")
+	})
+
+	return eg.Wait()
 }

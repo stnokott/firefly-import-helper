@@ -13,7 +13,6 @@ type WebhookResponse struct {
 	UserID   int                    `json:"user_id"`
 	Trigger  client.WebhookTrigger  `json:"trigger"`
 	Response client.WebhookResponse `json:"response"`
-	URL      string                 `json:"url"`
 	Version  string                 `json:"version"`
 	Content  WebhookResponseContent `json:"content"`
 }
@@ -29,6 +28,7 @@ type WebhookResponseContent struct {
 
 type WebhookResponseTransaction struct {
 	Amount               client.Amount                  `json:"amount"`
+	CurrencySymbol       string                         `json:"currency_symbol"`
 	CategoryID           *string                        `json:"category_id"`
 	CategoryName         *string                        `json:"category_name"`
 	Date                 time.Time                      `json:"date"`
