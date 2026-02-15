@@ -6,79 +6,77 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/stnokott/firefly-import-helper/internal/domain"
+	"github.com/stnokott/firefly-import-helper/internal/log"
+	"github.com/stnokott/firefly-import-helper/internal/telegram"
 )
 
-type Server struct {
-	port          int
-	interceptFunc InterceptFunc
+var logger = log.For("server")
+
+type server struct {
+	port     int
+	dataChan chan<- *domain.Transaction
+	t        telegram.Bot
 }
 
-func New(port int, opts ...Option) *Server {
-	s := &Server{
-		port: port,
-	}
-	for _, opt := range opts {
-		opt(s)
+func newServer(port int, dataChan chan<- *domain.Transaction, t telegram.Bot) *server {
+	s := &server{
+		port:     port,
+		dataChan: dataChan,
+		t:        t,
 	}
 	return s
 }
 
-type Option func(*Server)
-
-func WithIntercept(interceptFunc InterceptFunc) Option {
-	return func(s *Server) {
-		s.interceptFunc = interceptFunc
-	}
-}
-
-type InterceptFunc func(WebhookResponse)
-
-func (s *Server) Serve(ctx context.Context) error {
-	slog.Info(fmt.Sprintf("starting webhook listener on port %d", s.port))
+func (s *server) Serve(ctx context.Context) error {
+	logger.Debugf("starting webhook listener on port %d", s.port)
 	srv := &http.Server{
 		Addr:    fmt.Sprintf("0.0.0.0:%d", s.port),
 		Handler: s,
 	}
 	go func() {
 		<-ctx.Done()
-		slog.Info("stopping webhook listener")
+		logger.Debug("context closed, stopping webhook listener")
+		// TODO: delete webhook on graceful shutdown
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		_ = srv.Shutdown(shutdownCtx)
+		if shutdownErr := srv.Shutdown(shutdownCtx); shutdownErr != nil {
+			logger.ErrorV(fmt.Errorf("error during test server shutdown: %w", shutdownErr))
+		}
+		close(s.dataChan)
 	}()
 	err := srv.ListenAndServe()
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
-	slog.Debug("webhook listener gracefully stopped")
+	logger.Debug("webhook listener gracefully stopped")
 	return nil
 }
 
-func (s *Server) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
-	slog.Debug("received request on webhook endpoint")
+func (s *server) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
+	logger.Debug("received request on webhook endpoint")
 	if req.Method != http.MethodPost {
-		slog.Warn(fmt.Sprintf("received webhook with method %s, ignoring", req.Method))
+		logger.Warnf("received webhook with method %s, ignoring", req.Method)
 		rw.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
+	defer req.Body.Close()
 
-	var data WebhookResponse
-	if err := json.NewDecoder(req.Body).Decode(&data); err != nil {
-		slog.Error(fmt.Sprintf("could not decode webhook content: %v", err))
+	data := new(WebhookResponse)
+	if err := json.NewDecoder(req.Body).Decode(data); err != nil {
+		logger.ErrorV(fmt.Errorf("could not decode webhook content: %w", err))
 		rw.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	slog.Debug("got webhook data:")
-	slog.Debug(">> UUID: " + data.UUID.String())
-	slog.Debug(">> no. Transactions: " + strconv.Itoa(len(data.Content.Transactions)))
+	logger.Debug("got webhook data:")
+	logger.Debug(">> UUID: " + data.UUID.String())
+	logger.Debug(">> no. Transactions: " + strconv.Itoa(len(data.Content.SubTransactions)))
+	s.dataChan <- ConvertWebhookResponse(data)
 
-	if s.interceptFunc != nil {
-		s.interceptFunc(data)
-	}
 	rw.WriteHeader(http.StatusOK)
 }

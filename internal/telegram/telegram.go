@@ -4,59 +4,115 @@ package telegram
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"strings"
+	"sync"
 
 	telebot "github.com/go-telegram/bot"
 	telemodels "github.com/go-telegram/bot/models"
+	"github.com/stnokott/firefly-import-helper/internal/domain"
+	"github.com/stnokott/firefly-import-helper/internal/log"
 )
+
+var logger = log.For("telegram")
 
 // Bot allows for high-level interactions with the Telegram Bot API.
 type Bot interface {
 	// Run starts listening to message updates, tied to the provided context.
-	Run(ctx context.Context) error
+	Run(ctx context.Context, dataChan <-chan *domain.Transaction)
+	SendImportFinished(ctx context.Context, success, errors int) error
+}
+
+func NewNoopBot() Bot {
+	return noopBot{}
+}
+
+type noopBot struct{}
+
+func (noopBot) Run(_ context.Context, dataChan <-chan *domain.Transaction) {}
+func (noopBot) SendImportFinished(_ context.Context, success, errors int) error {
+	return nil
 }
 
 type bot struct {
-	*telebot.Bot
-	chatID string
+	t              *telebot.Bot
+	fireflyBaseURL string
+	chatID         string
 }
 
 const callbackDataPrefix = "category:"
 
-func NewBot(token string, chatID string) (Bot, error) {
-	b, err := telebot.New(
+func NewBot(token string, chatID string, fireflyBaseURL string) (Bot, error) {
+	t, err := telebot.New(
 		token,
 		telebot.WithCallbackQueryDataHandler(callbackDataPrefix, telebot.MatchTypePrefix, callbackQueryDataHandler),
 		telebot.WithErrorsHandler(func(err error) {
-			slog.Error(err.Error())
+			logger.ErrorV(err)
 		}),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("could not create telegram bot: %w", err)
 	}
 	return &bot{
-		Bot:    b,
-		chatID: chatID,
+		t:              t,
+		fireflyBaseURL: fireflyBaseURL,
+		chatID:         chatID,
 	}, nil
 }
 
-func (b *bot) Run(ctx context.Context) error {
-	_, err := b.SendMessage(ctx, &telebot.SendMessageParams{
+func (b *bot) Run(ctx context.Context, dataChan <-chan *domain.Transaction) {
+	var wg sync.WaitGroup
+	wg.Go(func() {
+		_, err := b.t.SendMessage(ctx, &telebot.SendMessageParams{
+			ChatID: b.chatID,
+			Text:   "Firefly-III Import Helper started.",
+		})
+		if err != nil {
+			logger.ErrorV(fmt.Errorf("failed to send startup message: %w", err))
+		}
+		b.t.Start(ctx)
+	})
+	wg.Go(func() {
+		b.dataListener(ctx, dataChan)
+	})
+
+	logger.Info("ready to receive messages")
+	wg.Wait()
+}
+
+func (b *bot) dataListener(ctx context.Context, dataChan <-chan *domain.Transaction) {
+	for {
+		select {
+		case <-ctx.Done():
+			logger.Debug("context closed, stopping listener")
+			return
+		case t, ok := <-dataChan:
+			if !ok {
+				logger.Debug("channel closed, stopping listener")
+				return
+			}
+			err := b.sendTransactionMessage(ctx, t)
+			if err != nil {
+				logger.ErrorV(err)
+			}
+		}
+	}
+}
+
+func (b *bot) sendTransactionMessage(ctx context.Context, t *domain.Transaction) error {
+	msg, err := b.renderTmplTransaction(t)
+	if err != nil {
+		return fmt.Errorf("failed to render template: %w", err)
+	}
+	_, err = b.t.SendMessage(ctx, &telebot.SendMessageParams{
 		ChatID:         b.chatID,
-		ParseMode:      telemodels.ParseModeMarkdown,
+		ParseMode:      templateParseMode,
 		ProtectContent: true,
-		Text: `
-			*Hello\!*
-			Test message from Bot v2\!
-		`,
-		ReplyMarkup: buildInlineKeyboard([]string{"A", "B", "C"}, ""),
+		Text:           msg,
+		// ReplyMarkup: buildInlineKeyboard([]string{"A", "B", "C"}, ""),
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("could not send message: %w", err)
 	}
-	slog.Info("ready to receive messages")
-	b.Start(ctx)
 	return nil
 }
 
@@ -67,13 +123,15 @@ func callbackQueryDataHandler(ctx context.Context, bot *telebot.Bot, update *tel
 		Text:            "Pressed button with data '" + update.CallbackQuery.Data + "'",
 	})
 	if err != nil {
-		slog.Error("failed to answer callback query: " + err.Error())
+		logger.Error("failed to answer callback query: " + err.Error())
 	}
+
+	// TODO: API call
 
 	// edit keyboard to indicate changes
 	attachedMessage := update.CallbackQuery.Message
 	if attachedMessage.Message == nil {
-		slog.Error("received callback query without message data, ignoring")
+		logger.Error("received callback query without message data, ignoring")
 		return
 	}
 	selectedCategory := strings.TrimPrefix(update.CallbackQuery.Data, callbackDataPrefix)
@@ -84,15 +142,16 @@ func callbackQueryDataHandler(ctx context.Context, bot *telebot.Bot, update *tel
 		ReplyMarkup:     buildInlineKeyboard([]string{"A", "B", "C"}, selectedCategory),
 	})
 	if err != nil {
-		slog.Error("failed to edit message after callback: " + err.Error())
+		logger.Error("failed to edit message after callback: " + err.Error())
 	}
 }
 
+const buttonsPerRow = 3
+
 func buildInlineKeyboard(options []string, selectedOption string) telemodels.InlineKeyboardMarkup {
-	cols := 3
 	var buttons [][]telemodels.InlineKeyboardButton
-	for i := 0; i < len(options); i += cols {
-		end := min(i+cols, len(options))
+	for i := 0; i < len(options); i += buttonsPerRow {
+		end := min(i+buttonsPerRow, len(options))
 		var row []telemodels.InlineKeyboardButton
 		for _, option := range options[i:end] {
 			buttonText := option
@@ -109,4 +168,32 @@ func buildInlineKeyboard(options []string, selectedOption string) telemodels.Inl
 	return telemodels.InlineKeyboardMarkup{
 		InlineKeyboard: buttons,
 	}
+}
+
+func (b *bot) SendImportFinished(ctx context.Context, success int, errors int) error {
+	msg, err := b.renderTmplImportFinished(success, errors)
+	if err != nil {
+		return fmt.Errorf("failed to render template: %w", err)
+	}
+	_, err = b.t.SendMessage(ctx, &telebot.SendMessageParams{
+		ChatID:    b.chatID,
+		ParseMode: templateParseMode,
+		Text:      msg,
+	})
+	if err != nil {
+		return fmt.Errorf("could not send message: %w", err)
+	}
+	return nil
+}
+
+func (b *bot) SendShutdownMessage(ctx context.Context) error {
+	_, err := b.t.SendMessage(ctx, &telebot.SendMessageParams{
+		ChatID:    b.chatID,
+		ParseMode: templateParseMode,
+		Text:      "Firefly-III Import Helper shutting down.",
+	})
+	if err != nil {
+		return fmt.Errorf("could not send message: %w", err)
+	}
+	return nil
 }

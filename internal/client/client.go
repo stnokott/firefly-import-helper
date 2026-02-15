@@ -2,12 +2,19 @@ package client
 
 import (
 	"context"
-	"fmt"
-	"log/slog"
 	"net/http"
+
+	"github.com/stnokott/firefly-import-helper/internal/log"
 )
 
 //go:generate go tool oapi-codegen -config .oapi-codegen.yaml firefly-iii-6.4.14-v1.yaml
+
+func WithUserAgent(agent string) ClientOption {
+	return WithRequestEditorFn(func(_ context.Context, req *http.Request) error {
+		req.Header.Add("User-Agent", agent)
+		return nil
+	})
+}
 
 func WithAccessToken(tok string) ClientOption {
 	return WithRequestEditorFn(func(_ context.Context, req *http.Request) error {
@@ -16,9 +23,9 @@ func WithAccessToken(tok string) ClientOption {
 	})
 }
 
-func WithRequestLogger() ClientOption {
+func WithRequestLogger(logger log.Logger) ClientOption {
 	return WithRequestEditorFn(func(_ context.Context, req *http.Request) error {
-		slog.Debug(fmt.Sprintf(">> %s %v %#v", req.Method, req.URL, req.URL.Query()))
+		logger.Debugf(">> %s %v?%s", req.Method, req.URL, req.URL.RawQuery)
 		return nil
 	})
 }
