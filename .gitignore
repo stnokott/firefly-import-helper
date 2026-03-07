@@ -1,3 +1,6 @@
+# config
+.env
+
 # direnv cache
 .direnv
 

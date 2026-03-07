@@ -5,6 +5,8 @@ go 1.25.7
 require (
 	github.com/go-telegram/bot v1.17.0
 	github.com/google/uuid v1.5.0
+	github.com/joho/godotenv v1.5.1
+	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/oapi-codegen/nullable v1.1.0
 	github.com/oapi-codegen/runtime v1.1.2
 	github.com/stretchr/testify v1.11.1

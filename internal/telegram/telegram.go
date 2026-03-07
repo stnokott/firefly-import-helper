@@ -4,11 +4,13 @@ package telegram
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
 	"sync"
 
 	telebot "github.com/go-telegram/bot"
 	telemodels "github.com/go-telegram/bot/models"
+	"github.com/stnokott/firefly-import-helper/internal/config"
 	"github.com/stnokott/firefly-import-helper/internal/domain"
 	"github.com/stnokott/firefly-import-helper/internal/log"
 )
@@ -35,15 +37,15 @@ func (noopBot) SendImportFinished(_ context.Context, success, errors int) error 
 
 type bot struct {
 	t              *telebot.Bot
-	fireflyBaseURL string
+	fireflyBaseURL url.URL
 	chatID         string
 }
 
 const callbackDataPrefix = "category:"
 
-func NewBot(token string, chatID string, fireflyBaseURL string) (Bot, error) {
+func NewBot() (Bot, error) {
 	t, err := telebot.New(
-		token,
+		config.C.TelegramBotToken,
 		telebot.WithCallbackQueryDataHandler(callbackDataPrefix, telebot.MatchTypePrefix, callbackQueryDataHandler),
 		telebot.WithErrorsHandler(func(err error) {
 			logger.ErrorV(err)
@@ -54,8 +56,8 @@ func NewBot(token string, chatID string, fireflyBaseURL string) (Bot, error) {
 	}
 	return &bot{
 		t:              t,
-		fireflyBaseURL: fireflyBaseURL,
-		chatID:         chatID,
+		fireflyBaseURL: config.C.FireflyBaseURL.URL,
+		chatID:         config.C.TelegramChatID,
 	}, nil
 }
 

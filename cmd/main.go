@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/stnokott/firefly-import-helper/internal/client"
+	"github.com/stnokott/firefly-import-helper/internal/config"
 	"github.com/stnokott/firefly-import-helper/internal/domain"
 	"github.com/stnokott/firefly-import-helper/internal/importer"
 	"github.com/stnokott/firefly-import-helper/internal/log"
@@ -17,18 +18,15 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-const (
-	telegramBotToken      = "5076697375:AAHnS4OeS7UobqT5eY88lOH9Tef13pXBrVs"
-	telegramChatID        = "725149271"
-	fireflyBaseURL        = "http://firefly.local" // TODO: parse and normalize URL first to account for possible trailing slash
-	fireflyAccessToken    = `` // TODO: replace me
-	fireflyImporterURL    = "http://192.168.178.31:8081"
-	fireflyImporterSecret = `W2reJoKxD8CqUB522n25`
-)
-
 // var fireflyImporterConfigs = []string{"lunchflow.json"}
 
 func main() {
+	if err := config.Read(".env"); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+		return
+	}
+
 	logLevel := log.Info
 	if strings.ToLower(os.Getenv("DEBUG")) == "true" {
 		logLevel = log.Debug
@@ -50,7 +48,7 @@ func run() error {
 	eg, ctxEg := errgroup.WithContext(ctx)
 
 	// create and start telegram bot
-	bot, err := telegram.NewBot(telegramBotToken, telegramChatID, fireflyBaseURL)
+	bot, err := telegram.NewBot()
 	if err != nil {
 		return err
 	}
@@ -60,23 +58,26 @@ func run() error {
 	})
 
 	// create Firefly API client
-	c, err := client.NewClientWithResponses(
-		fireflyBaseURL+"/api",
-		client.WithAccessToken(fireflyAccessToken),
+	api, err := client.NewClientWithResponses(
+		config.C.FireflyBaseURL.JoinPath("/api").String(),
+		client.WithAccessToken(config.C.FireflyAccessToken),
 		client.WithRequestLogger(log.For("api-client")),
 		client.WithUserAgent("firefly-import-helper"), // TODO: add version from goreleaser
 	)
 	if err != nil {
 		return fmt.Errorf("could not create API client: %w", err)
 	}
-	// prepare webhook server
-	if err = server.Setup(ctx, c, bot); err != nil {
-		return fmt.Errorf("could not setup webhook server: %w", err)
+	srv, err := server.NewServer(transactionChan, api)
+	if err != nil {
+		return fmt.Errorf("could not create server: %w", err)
 	}
 
+	if err := srv.Setup(ctx); err != nil {
+		return fmt.Errorf("could not set up server: %w", err)
+	}
 	// start webhook listener server
 	eg.Go(func() error {
-		return server.Run(ctxEg, transactionChan, bot)
+		return srv.Run(ctxEg)
 	})
 
 	im := importer.New(bot)
@@ -86,9 +87,6 @@ func run() error {
 		time.Sleep(2 * time.Second)
 		return im.Run(
 			ctxEg,
-			fireflyImporterURL,
-			fireflyImporterSecret,
-			fireflyAccessToken,
 			"./configs/lunchflow.json",
 		)
 	})

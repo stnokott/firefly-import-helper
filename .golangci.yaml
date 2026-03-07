@@ -37,7 +37,7 @@ linters:
           # - "disable-checks-on-types"
           # - "disable-checks-on-variables"
     errcheck:
-      check-blank: true
+      check-blank: false
     govet:
       enable-all: true
       disable:

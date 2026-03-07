@@ -8,13 +8,13 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
 
+	"github.com/stnokott/firefly-import-helper/internal/config"
 	"github.com/stnokott/firefly-import-helper/internal/log"
 	"github.com/stnokott/firefly-import-helper/internal/telegram"
 )
@@ -33,27 +33,23 @@ const importTimeout = time.Duration(5 * time.Minute)
 
 var logger = log.For("importer")
 
-func (im *Importer) Run(ctx context.Context, importerURL string, importerSecret string, fireflyAccessToken string, configPath string) error {
+func (im *Importer) Run(ctx context.Context, configPath string) error {
 	logger.Infof("running with config '%s'", configPath)
 
 	ctx, cancel := context.WithTimeout(ctx, importTimeout)
 	defer cancel()
 
-	u, err := url.Parse(importerURL)
-	if err != nil {
-		return fmt.Errorf("invalid importer URL: %w", err)
-	}
-	u = u.JoinPath("autoupload")
-	q := u.Query()
-	q.Set("secret", importerSecret)
-	u.RawQuery = q.Encode()
+	uploaderURL := config.C.FireflyAutoimporterURL.JoinPath("/autoupload")
+	q := uploaderURL.Query()
+	q.Set("secret", config.C.FireflyAutoimporterSecret)
+	uploaderURL.RawQuery = q.Encode()
 
-	req, err := createAutouploadRequest(ctx, u.String(), configPath)
+	req, err := createAutouploadRequest(ctx, uploaderURL.String(), configPath)
 	if err != nil {
 		return fmt.Errorf("could not create request: %w", err)
 	}
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Authorization", "Bearer "+fireflyAccessToken)
+	req.Header.Set("Authorization", "Bearer "+config.C.FireflyAccessToken)
 
 	logger.Debugf("executing request with timeout %s", importTimeout.String())
 	resp, err := http.DefaultClient.Do(req)

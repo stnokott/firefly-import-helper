@@ -56,7 +56,7 @@ func (b *bot) renderTmplTransaction(t *domain.Transaction) (string, error) {
 	}
 	data := tmplDataTransaction{
 		ID:              t.ID,
-		URL:             b.fireflyBaseURL + "/transactions/show/" + strconv.Itoa(t.ID),
+		URL:             b.fireflyBaseURL.JoinPath("/transactions/show/", strconv.Itoa(t.ID)).String(),
 		SubTransactions: tData,
 	}
 	buf := new(bytes.Buffer)

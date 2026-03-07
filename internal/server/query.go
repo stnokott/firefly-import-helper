@@ -10,8 +10,8 @@ import (
 	"github.com/stnokott/firefly-import-helper/internal/ptr"
 )
 
-func getCurrentUser(ctx context.Context, c client.ClientWithResponsesInterface) (*client.UserRead, error) {
-	resp, err := c.GetCurrentUserWithResponse(ctx, nil)
+func (s *Server) getCurrentUser(ctx context.Context) (*client.UserRead, error) {
+	resp, err := s.api.GetCurrentUserWithResponse(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -29,9 +29,9 @@ func getCurrentUser(ctx context.Context, c client.ClientWithResponsesInterface) 
 	}
 }
 
-func getAnyTransaction(ctx context.Context, c client.ClientWithResponsesInterface) (*client.TransactionRead, error) {
+func (s *Server) getAnyTransaction(ctx context.Context) (*client.TransactionRead, error) {
 	logger.Debug("querying an arbitrary transaction")
-	resp, err := c.ListTransactionWithResponse(ctx, &client.ListTransactionParams{
+	resp, err := s.api.ListTransactionWithResponse(ctx, &client.ListTransactionParams{
 		Limit: ptr.Of(int32(1)),
 	})
 	if err != nil {
@@ -47,9 +47,9 @@ func getAnyTransaction(ctx context.Context, c client.ClientWithResponsesInterfac
 	return &resp.ApplicationvndApiJSON200.Data[0], nil
 }
 
-func queryAllWebhooks(ctx context.Context, c client.ClientWithResponsesInterface) ([]client.WebhookRead, error) {
+func (s *Server) queryAllWebhooks(ctx context.Context) ([]client.WebhookRead, error) {
 	logger.Debug("querying all webhooks")
-	resp, err := c.ListWebhookWithResponse(ctx, &client.ListWebhookParams{
+	resp, err := s.api.ListWebhookWithResponse(ctx, &client.ListWebhookParams{
 		Limit: ptr.Of(int32(50)),
 		Page:  ptr.Of(int32(1)),
 	})
@@ -62,9 +62,9 @@ func queryAllWebhooks(ctx context.Context, c client.ClientWithResponsesInterface
 	return resp.ApplicationvndApiJSON200.Data, nil
 }
 
-func createWebhook(ctx context.Context, c client.ClientWithResponsesInterface) (string, error) {
+func (s *Server) createWebhook(ctx context.Context) (string, error) {
 	logger.Debug("creating webhook")
-	resp, err := c.StoreWebhookWithResponse(ctx, nil, client.WebhookStore{
+	resp, err := s.api.StoreWebhookWithResponse(ctx, nil, client.WebhookStore{
 		Active: ptr.Of(true),
 		Title:  webhookTitle,
 		Triggers: &client.WebhookTriggerArray{
@@ -76,7 +76,7 @@ func createWebhook(ctx context.Context, c client.ClientWithResponsesInterface) (
 		Deliveries: &client.WebhookDeliveryArray{
 			client.JSON,
 		},
-		Url: webhookURL,
+		Url: s.webhookURL,
 	})
 	if err != nil {
 		return "", err
@@ -87,9 +87,9 @@ func createWebhook(ctx context.Context, c client.ClientWithResponsesInterface) (
 	return resp.ApplicationvndApiJSON200.Data.Id, nil
 }
 
-func updateWebhook(ctx context.Context, c client.ClientWithResponsesInterface, id string) error {
+func (s *Server) updateWebhook(ctx context.Context, id string) error {
 	logger.Debug("updating webhook")
-	resp, err := c.UpdateWebhookWithResponse(ctx, id, nil, client.WebhookUpdate{
+	resp, err := s.api.UpdateWebhookWithResponse(ctx, id, nil, client.WebhookUpdate{
 		Active: ptr.Of(true),
 		Title:  ptr.Of(webhookTitle),
 		Triggers: &client.WebhookTriggerArray{
@@ -101,7 +101,7 @@ func updateWebhook(ctx context.Context, c client.ClientWithResponsesInterface, i
 		Deliveries: &client.WebhookDeliveryArray{
 			client.JSON,
 		},
-		Url: ptr.Of(webhookURL),
+		Url: ptr.Of(s.webhookURL),
 	})
 	if err != nil {
 		return err
@@ -112,8 +112,8 @@ func updateWebhook(ctx context.Context, c client.ClientWithResponsesInterface, i
 	return nil
 }
 
-func triggerWebhook(ctx context.Context, c client.ClientWithResponsesInterface, webhookID string, transactionID string) error {
-	resp, err := c.TriggerTransactionWebhookWithResponse(ctx, webhookID, transactionID, nil, func(_ context.Context, req *http.Request) error {
+func (s *Server) triggerWebhook(ctx context.Context, webhookID string, transactionID string) error {
+	resp, err := s.api.TriggerTransactionWebhookWithResponse(ctx, webhookID, transactionID, nil, func(_ context.Context, req *http.Request) error {
 		req.Header.Add("Content-Type", "application/json")
 		return nil
 	})
