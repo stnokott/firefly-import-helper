@@ -6,101 +6,90 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
-	"sync"
 
 	telebot "github.com/go-telegram/bot"
 	telemodels "github.com/go-telegram/bot/models"
 	"github.com/stnokott/firefly-import-helper/internal/config"
 	"github.com/stnokott/firefly-import-helper/internal/domain"
+	"github.com/stnokott/firefly-import-helper/internal/importer"
 	"github.com/stnokott/firefly-import-helper/internal/log"
 )
 
 var logger = log.For("telegram")
 
-// Bot allows for high-level interactions with the Telegram Bot API.
-type Bot interface {
-	// Run starts listening to message updates, tied to the provided context.
-	Run(ctx context.Context, dataChan <-chan *domain.Transaction)
-	SendImportFinished(ctx context.Context, success, errors int) error
-}
-
-func NewNoopBot() Bot {
-	return noopBot{}
-}
-
-type noopBot struct{}
-
-func (noopBot) Run(_ context.Context, dataChan <-chan *domain.Transaction) {}
-func (noopBot) SendImportFinished(_ context.Context, success, errors int) error {
-	return nil
-}
-
-type bot struct {
+type Bot struct {
 	t              *telebot.Bot
 	fireflyBaseURL url.URL
 	chatID         string
 }
 
+var _ importer.Messenger = (*Bot)(nil)
+
 const callbackDataPrefix = "category:"
 
-func NewBot() (Bot, error) {
+func NewBot() (*Bot, error) {
 	t, err := telebot.New(
 		config.C.TelegramBotToken,
 		telebot.WithCallbackQueryDataHandler(callbackDataPrefix, telebot.MatchTypePrefix, callbackQueryDataHandler),
 		telebot.WithErrorsHandler(func(err error) {
+			logger.Infof("%#v", err)
 			logger.ErrorV(err)
 		}),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("could not create telegram bot: %w", err)
 	}
-	return &bot{
+	return &Bot{
 		t:              t,
 		fireflyBaseURL: config.C.FireflyBaseURL.URL,
 		chatID:         config.C.TelegramChatID,
 	}, nil
 }
 
-func (b *bot) Run(ctx context.Context, dataChan <-chan *domain.Transaction) {
-	var wg sync.WaitGroup
-	wg.Go(func() {
-		_, err := b.t.SendMessage(ctx, &telebot.SendMessageParams{
-			ChatID: b.chatID,
-			Text:   "Firefly-III Import Helper started.",
-		})
-		if err != nil {
-			logger.ErrorV(fmt.Errorf("failed to send startup message: %w", err))
-		}
-		b.t.Start(ctx)
+func (b *Bot) Run(ctx context.Context) {
+	_, err := b.t.SendMessage(ctx, &telebot.SendMessageParams{
+		ChatID: b.chatID,
+		Text:   "Firefly-III Import Helper started.",
 	})
-	wg.Go(func() {
-		b.dataListener(ctx, dataChan)
-	})
-
-	logger.Info("ready to receive messages")
-	wg.Wait()
-}
-
-func (b *bot) dataListener(ctx context.Context, dataChan <-chan *domain.Transaction) {
-	for {
-		select {
-		case <-ctx.Done():
-			logger.Debug("context closed, stopping listener")
-			return
-		case t, ok := <-dataChan:
-			if !ok {
-				logger.Debug("channel closed, stopping listener")
-				return
-			}
-			err := b.sendTransactionMessage(ctx, t)
-			if err != nil {
-				logger.ErrorV(err)
-			}
-		}
+	if err != nil {
+		logger.ErrorV(fmt.Errorf("failed to send startup message: %w", err))
 	}
+	// intercept cancel of parent context and send stopped-message. Only then cancel actual context.
+	ctxBot, cancelBot := context.WithCancel(context.Background())
+	go func() {
+		<-ctx.Done()
+		_, _ = b.t.SendMessage(ctx, &telebot.SendMessageParams{
+			ChatID: b.chatID,
+			Text:   "Firefly-III Import Helper shutting down.",
+		})
+		cancelBot()
+	}()
+	b.t.Start(ctxBot)
 }
 
-func (b *bot) sendTransactionMessage(ctx context.Context, t *domain.Transaction) error {
+func (b *Bot) MsgImportStarted(ctx context.Context) error {
+	_, err := b.t.SendMessage(ctx, &telebot.SendMessageParams{
+		ChatID: b.chatID,
+		Text:   "Import starting...",
+	})
+	if err != nil {
+		return fmt.Errorf("could not send message: %w", err)
+	}
+	return nil
+}
+
+func (b *Bot) MsgImportFinished(ctx context.Context) error {
+	_, err := b.t.SendMessage(ctx, &telebot.SendMessageParams{
+		ChatID: b.chatID,
+		Text:   "Import finished.",
+	})
+	if err != nil {
+		return fmt.Errorf("could not send message: %w", err)
+	}
+	return nil
+}
+
+func (b *Bot) sendTransactionMessage(ctx context.Context, t *domain.FireflyTransaction) error {
 	msg, err := b.renderTmplTransaction(t)
 	if err != nil {
 		return fmt.Errorf("failed to render template: %w", err)
@@ -170,32 +159,4 @@ func buildInlineKeyboard(options []string, selectedOption string) telemodels.Inl
 	return telemodels.InlineKeyboardMarkup{
 		InlineKeyboard: buttons,
 	}
-}
-
-func (b *bot) SendImportFinished(ctx context.Context, success int, errors int) error {
-	msg, err := b.renderTmplImportFinished(success, errors)
-	if err != nil {
-		return fmt.Errorf("failed to render template: %w", err)
-	}
-	_, err = b.t.SendMessage(ctx, &telebot.SendMessageParams{
-		ChatID:    b.chatID,
-		ParseMode: templateParseMode,
-		Text:      msg,
-	})
-	if err != nil {
-		return fmt.Errorf("could not send message: %w", err)
-	}
-	return nil
-}
-
-func (b *bot) SendShutdownMessage(ctx context.Context) error {
-	_, err := b.t.SendMessage(ctx, &telebot.SendMessageParams{
-		ChatID:    b.chatID,
-		ParseMode: templateParseMode,
-		Text:      "Firefly-III Import Helper shutting down.",
-	})
-	if err != nil {
-		return fmt.Errorf("could not send message: %w", err)
-	}
-	return nil
 }

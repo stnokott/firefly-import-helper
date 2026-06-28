@@ -12,14 +12,11 @@ import (
 
 // Spec contains the configuration data read from the env file.
 type Spec struct {
-	TelegramBotToken          string `required:"true" envconfig:"TELEGRAM_BOT_TOKEN"`
-	TelegramChatID            string `required:"true" envconfig:"TELEGRAM_CHAT_ID"`
-	FireflyBaseURL            *URL   `required:"true" envconfig:"FIREFLY_BASE_URL"`
-	FireflyAccessToken        string `required:"true" envconfig:"FIREFLY_ACCESS_TOKEN"`
-	FireflyAutoimporterURL    *URL   `required:"true" envconfig:"FIREFLY_AUTOIMPORTER_URL"`
-	FireflyAutoimporterSecret string `required:"true" envconfig:"FIREFLY_AUTOIMPORTER_SECRET"`
-	FireflyWebhookPort        int    `required:"false" default:"8888" envconfig:"FIREFLY_WEBHOOK_PORT"`
-	ExternalURL               *URL   `required:"true" envconfig:"EXTERNAL_URL"`
+	TelegramBotToken   string `required:"true" envconfig:"TELEGRAM_BOT_TOKEN"`
+	TelegramChatID     string `required:"true" envconfig:"TELEGRAM_CHAT_ID"`
+	FireflyBaseURL     *URL   `required:"true" envconfig:"FIREFLY_BASE_URL"`
+	FireflyAccessToken string `required:"true" envconfig:"FIREFLY_ACCESS_TOKEN"`
+	LunchflowAPIKey    string `required:"true" envconfig:"LUNCHFLOW_API_KEY"`
 }
 
 type URL struct {
@@ -43,6 +40,7 @@ func (u *URL) Decode(v string) error {
 var C Spec
 
 // Read reads the contents of "file", expecting an env-file like structure.
+// TODO: return config struct instead of global singleton
 func Read(file string) error {
 	if err := godotenv.Load(file); err != nil {
 		return fmt.Errorf("could not read env file '%s': %w", file, err)

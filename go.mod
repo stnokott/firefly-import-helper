@@ -1,10 +1,9 @@
 module github.com/stnokott/firefly-import-helper
 
-go 1.25.7
+go 1.26
 
 require (
 	github.com/go-telegram/bot v1.17.0
-	github.com/google/uuid v1.5.0
 	github.com/joho/godotenv v1.5.1
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/oapi-codegen/nullable v1.1.0
@@ -22,6 +21,7 @@ require (
 	github.com/getkin/kin-openapi v0.133.0 // indirect
 	github.com/go-openapi/jsonpointer v0.21.0 // indirect
 	github.com/go-openapi/swag v0.23.0 // indirect
+	github.com/google/uuid v1.5.0 // indirect
 	github.com/jmattheis/goverter v1.9.3 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect

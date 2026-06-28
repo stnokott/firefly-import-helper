@@ -2,23 +2,20 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
 	"strings"
 	"time"
 
-	"github.com/stnokott/firefly-import-helper/internal/client"
 	"github.com/stnokott/firefly-import-helper/internal/config"
-	"github.com/stnokott/firefly-import-helper/internal/domain"
 	"github.com/stnokott/firefly-import-helper/internal/importer"
 	"github.com/stnokott/firefly-import-helper/internal/log"
-	"github.com/stnokott/firefly-import-helper/internal/server"
+	"github.com/stnokott/firefly-import-helper/internal/lunchflow"
 	"github.com/stnokott/firefly-import-helper/internal/telegram"
 	"golang.org/x/sync/errgroup"
 )
-
-// var fireflyImporterConfigs = []string{"lunchflow.json"}
 
 func main() {
 	if err := config.Read(".env"); err != nil {
@@ -44,51 +41,40 @@ func run() error {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
 	defer cancel()
 
-	transactionChan := make(chan *domain.Transaction, 1)
 	eg, ctxEg := errgroup.WithContext(ctx)
 
-	// create and start telegram bot
-	bot, err := telegram.NewBot()
+	// create and start telegram messenger
+	messenger, err := telegram.NewBot()
 	if err != nil {
 		return err
 	}
 	eg.Go(func() error {
-		bot.Run(ctxEg, transactionChan)
+		messenger.Run(ctxEg)
 		return nil
 	})
 
 	// create Firefly API client
-	api, err := client.NewClientWithResponses(
-		config.C.FireflyBaseURL.JoinPath("/api").String(),
-		client.WithAccessToken(config.C.FireflyAccessToken),
-		client.WithRequestLogger(log.For("api-client")),
-		client.WithUserAgent("firefly-import-helper"), // TODO: add version from goreleaser
-	)
-	if err != nil {
-		return fmt.Errorf("could not create API client: %w", err)
-	}
-	srv, err := server.NewServer(transactionChan, api)
-	if err != nil {
-		return fmt.Errorf("could not create server: %w", err)
-	}
+	// api, err := firefly.NewClientWithResponses(
+	// 	config.C.FireflyBaseURL.JoinPath("/api").String(),
+	// 	firefly.WithAccessToken(config.C.FireflyAccessToken),
+	// 	firefly.WithRequestLogger(log.For("firefly")),
+	// 	firefly.WithUserAgent("firefly-import-helper"), // TODO: add version from goreleaser
+	// )
+	// if err != nil {
+	// 	return fmt.Errorf("could not create API client: %w", err)
+	// }
 
-	if err := srv.Setup(ctx); err != nil {
-		return fmt.Errorf("could not set up server: %w", err)
-	}
-	// start webhook listener server
-	eg.Go(func() error {
-		return srv.Run(ctxEg)
-	})
+	bank := lunchflow.NewClient(config.C.LunchflowAPIKey)
 
-	im := importer.New(bot)
-	// run import
-	// TODO: run with cron expression
+	im := importer.New(messenger, bank)
 	eg.Go(func() error {
-		time.Sleep(2 * time.Second)
-		return im.Run(
+		ctxImporter, cancelImporter := context.WithTimeoutCause(
 			ctxEg,
-			"./configs/lunchflow.json",
+			5*time.Minute,
+			errors.New("timeout exceeded"),
 		)
+		defer cancelImporter()
+		return im.Run(ctxImporter)
 	})
 
 	return eg.Wait()

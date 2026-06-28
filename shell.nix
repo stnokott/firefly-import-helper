@@ -11,6 +11,8 @@ pkgs.mkShell {
     gofumpt
     # Docker
     hadolint
+    # yaml
+    yaml-language-server
   ];
   shellHook = ''
     go env -w CGO_ENABLED=0

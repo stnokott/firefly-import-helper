@@ -22,20 +22,20 @@ linters:
   settings:
     revive:
       rules:
-      - name: exported
-        severity: warning
-        # disabled: false
-        # exclude: [""]
-        arguments:
-          - "check-private-receivers"
-          # - "disable-stuttering-check"
-          - "say-repetitive-instead-of-stutters"
-          - "check-public-interface"
-          # - "disable-checks-on-constants"
-          - "disable-checks-on-functions"
-          - "disable-checks-on-methods"
-          # - "disable-checks-on-types"
-          # - "disable-checks-on-variables"
+        - name: exported
+          severity: warning
+          # disabled: false
+          # exclude: [""]
+          arguments:
+            - "check-private-receivers"
+            # - "disable-stuttering-check"
+            - "say-repetitive-instead-of-stutters"
+            - "check-public-interface"
+            # - "disable-checks-on-constants"
+            - "disable-checks-on-functions"
+            - "disable-checks-on-methods"
+            # - "disable-checks-on-types"
+            # - "disable-checks-on-variables"
     errcheck:
       check-blank: false
     govet:
@@ -53,5 +53,6 @@ linters:
   exclusions:
     rules:
       - path: '(.+)_test\.go'
-        linters:
-          - goconst
+        linters: [goconst]
+      - text: 'declaration of "(err|ctx)" shadows declaration at'
+        linters: [govet]

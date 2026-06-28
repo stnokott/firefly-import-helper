@@ -25,7 +25,8 @@ var tmplTransaction = template.Must(template.New("telegramNotification").Parse(
 	<tg-spoiler>⚖️ {{.SourceName}} ➜ {{.DestinationName}}</tg-spoiler>
 	<tg-spoiler>💶 <b>{{.AmountStr}}</b></tg-spoiler>
 {{end}}
-`))
+`,
+))
 
 type tmplDataTransaction struct {
 	ID              int
@@ -42,7 +43,7 @@ type tmplDataSubTransaction struct {
 	AmountStr       string
 }
 
-func (b *bot) renderTmplTransaction(t *domain.Transaction) (string, error) {
+func (b *Bot) renderTmplTransaction(t *domain.FireflyTransaction) (string, error) {
 	tData := make([]tmplDataSubTransaction, len(t.SubTransactions))
 	for i, t := range t.SubTransactions {
 		tData[i] = tmplDataSubTransaction{
@@ -61,33 +62,6 @@ func (b *bot) renderTmplTransaction(t *domain.Transaction) (string, error) {
 	}
 	buf := new(bytes.Buffer)
 	if err := tmplTransaction.Execute(buf, &data); err != nil {
-		return "", fmt.Errorf("could not render message template: %w", err)
-	}
-	return buf.String(), nil
-}
-
-var tmplImportFinished = template.Must(template.New("telegramNotification").Parse(
-	`
-<b>Import finished.</b>
-✔️New Transactions: {{.Success}}
-❌Errors: {{.Errors}}
-{{if gt .Errors 0 -}}
-Please check the logs for details.
-{{- end -}}
-`))
-
-type tmplDataImportFinished struct {
-	Success int
-	Errors  int
-}
-
-func (*bot) renderTmplImportFinished(success, errors int) (string, error) {
-	data := tmplDataImportFinished{
-		Success: success,
-		Errors:  errors,
-	}
-	buf := new(bytes.Buffer)
-	if err := tmplImportFinished.Execute(buf, &data); err != nil {
 		return "", fmt.Errorf("could not render message template: %w", err)
 	}
 	return buf.String(), nil
