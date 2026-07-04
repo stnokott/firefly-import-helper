@@ -15,7 +15,13 @@ import (
 	"github.com/stnokott/firefly-import-helper/internal/log"
 )
 
-const httpRequestTimeout = 10 * time.Second
+const (
+	httpRequestTimeout = 60 * time.Second
+)
+
+const (
+	maxTransactionTimePast = 90 * 24 * time.Hour
+)
 
 var logger = log.For("lunchflow")
 
@@ -49,6 +55,8 @@ func NewClient(apiKey string) *Client {
 }
 
 func (c *Client) GetAccounts(ctx context.Context) ([]domain.BankAccount, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
 	accounts, err := c.listAccounts(ctx)
 	if err != nil {
 		return nil, err
@@ -65,48 +73,12 @@ func (c *Client) listAccounts(ctx context.Context) (*Accounts, error) {
 	return parseResponse[Accounts](resp, 200)
 }
 
-func (c *Client) GetTransactions(ctx context.Context, id int) ([]domain.BankTransaction, error) {
-	transactions, err := c.getAccountTransactions(ctx, id)
+func (c *Client) GetBalance(ctx context.Context, id domain.BankAccountID) (float64, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	balance, err := c.getAccountBalance(ctx, int(id))
 	if err != nil {
-		return nil, err
-	}
-	return ConvertTransactions(transactions.Transactions), nil
-}
-
-func (c *Client) getAccountTransactions(ctx context.Context, id int, opts ...getAccountTransactionOpt) (*Transactions, error) {
-	u := c.baseURL.JoinPath("/accounts/", strconv.Itoa(id), "/transactions")
-	for _, opt := range opts {
-		opt(u)
-	}
-	resp, err := c.get(ctx, u.String()) //nolint:bodyclose // will be closed in parseResponse
-	if err != nil {
-		return nil, err
-	}
-	return parseResponse[Transactions](resp, 200)
-}
-
-type getAccountTransactionOpt func(u *url.URL)
-
-func WithFromDate(from time.Time) getAccountTransactionOpt {
-	return func(u *url.URL) {
-		q := u.Query()
-		q.Set("from", from.Format(time.DateOnly))
-		u.RawQuery = q.Encode()
-	}
-}
-
-func WithToDate(to time.Time) getAccountTransactionOpt {
-	return func(u *url.URL) {
-		q := u.Query()
-		q.Set("to", to.Format(time.DateOnly))
-		u.RawQuery = q.Encode()
-	}
-}
-
-func (c *Client) GetBalance(ctx context.Context, id int) (float64, error) {
-	balance, err := c.getAccountBalance(ctx, id)
-	if err != nil {
-		return -1, nil
+		return -1, err
 	}
 	return balance.Balance.Amount, nil
 }
@@ -118,6 +90,35 @@ func (c *Client) getAccountBalance(ctx context.Context, id int) (*Balance, error
 		return nil, err
 	}
 	return parseResponse[Balance](resp, 200)
+}
+
+func (c *Client) GetTransactions(ctx context.Context, id domain.BankAccountID, from time.Time, to time.Time) ([]domain.BankTransaction, error) {
+	minFromTime := c.MinTransactionTime()
+	if from.Before(minFromTime) {
+		return nil, fmt.Errorf("can not query transactions earlier than %v", minFromTime.Format(time.DateTime))
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+	u := c.baseURL.JoinPath(fmt.Sprintf("/accounts/%d/transactions", id))
+	q := u.Query()
+	q.Set("from", from.Format(time.DateOnly))
+	q.Set("to", to.Format(time.DateOnly))
+	u.RawQuery = q.Encode()
+
+	resp, err := c.get(ctx, u.String()) //nolint:bodyclose // will be closed in parseResponse
+	if err != nil {
+		return nil, err
+	}
+	respTransactions, err := parseResponse[Transactions](resp, 200)
+	if err != nil {
+		return nil, err
+	}
+	return ConvertTransactions(respTransactions.Transactions), nil
+}
+
+func (*Client) MinTransactionTime() time.Time {
+	return time.Now().Truncate(24 * time.Hour).Add(24 * time.Hour).Add(-maxTransactionTimePast)
 }
 
 func (c *Client) get(ctx context.Context, url string) (*http.Response, error) {

@@ -2,6 +2,8 @@ package importer
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	"github.com/stnokott/firefly-import-helper/internal/domain"
 	"github.com/stnokott/firefly-import-helper/internal/log"
@@ -37,8 +39,10 @@ type Summary struct {
 
 type BankConnection interface {
 	GetAccounts(ctx context.Context) ([]domain.BankAccount, error)
-	GetBalance(ctx context.Context, id int) (float64, error)
-	GetTransactions(ctx context.Context, id int) ([]domain.BankTransaction, error)
+	GetBalance(ctx context.Context, id domain.BankAccountID) (float64, error)
+	// GetTransactions returns the transactions of the given account within the given timeframe.
+	GetTransactions(ctx context.Context, id domain.BankAccountID, from time.Time, to time.Time) ([]domain.BankTransaction, error)
+	MinTransactionTime() time.Time
 }
 
 func (im *Importer) Import(ctx context.Context) (err error) {
@@ -61,7 +65,7 @@ func (im *Importer) Import(ctx context.Context) (err error) {
 
 	sum := make([]Summary, len(accounts))
 	for i, acc := range accounts {
-		logger.Infof("%d/%d: %s @ %s (%v)", i+1, len(accounts), acc.Name, acc.Institution, acc.Status)
+		logger.Infof("importing %d/%d: %s @ %s (%v)", i+1, len(accounts), acc.Name, acc.Institution, acc.Status)
 		summary := Summary{
 			Account:     acc.Name,
 			Institution: acc.Institution,
@@ -74,13 +78,34 @@ func (im *Importer) Import(ctx context.Context) (err error) {
 			summary.Success = false
 			summary.Info = "Issue with data provider"
 		case domain.BankAccountStatusActive:
-			// TODO: import
-			summary.Success = true
-			summary.Info = "123 transactions imported"
+			imported, err := im.doImport(ctx, acc)
+			if err != nil {
+				logger.ErrorV(err)
+				summary.Success = false
+				summary.Info = err.Error()
+			} else {
+				summary.Success = true
+				summary.Info = fmt.Sprintf("%d transactions imported", imported)
+			}
 		}
 
 		sum[i] = summary
 	}
 
 	return im.msg.MsgImportFinished(ctx, sum)
+}
+
+// doImport imports transactions for the given account and returns the number of imported transactions.
+func (im *Importer) doImport(ctx context.Context, acc domain.BankAccount) (int, error) {
+	from := im.bank.MinTransactionTime()
+	to := from.Add(7 * 24 * time.Hour)
+	transactions, err := im.bank.GetTransactions(ctx, acc.ID, from, to)
+	if err != nil {
+		return 0, fmt.Errorf("could not get transactions: %w", err)
+	}
+	logger.Debugf("found %d transactions for account %s between %s and %s", len(transactions), acc.Name, from.Format(time.DateOnly), to.Format(time.DateOnly))
+	for _, t := range transactions {
+		logger.Debugf("--> %#v", t)
+	}
+	return len(transactions), nil
 }

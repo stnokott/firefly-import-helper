@@ -13,6 +13,7 @@ import (
 //goverter:output:file convert.gen.go
 //goverter:output:package github.com/stnokott/firefly-import-helper/internal/lunchflow
 //goverter:extend copyTime
+//goverter:extend copyDateTime
 type Converter interface {
 	ConvertAccounts([]Account) []domain.BankAccount
 	//goverter:map Currency | currencyOrDefault
@@ -46,6 +47,10 @@ func determineTransactionType(t Transaction) domain.BankTransactionType {
 
 func copyTime(t time.Time) time.Time {
 	return t
+}
+
+func copyDateTime(t DateTime) time.Time {
+	return t.Time
 }
 
 func descriptionOrEmpty(desc *string) string {

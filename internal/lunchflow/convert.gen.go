@@ -6,7 +6,7 @@ import domain "github.com/stnokott/firefly-import-helper/internal/domain"
 
 func ConvertAccount(source Account) domain.BankAccount {
 	var domainBankAccount domain.BankAccount
-	domainBankAccount.ID = source.ID
+	domainBankAccount.ID = domain.BankAccountID(source.ID)
 	domainBankAccount.Name = source.Name
 	domainBankAccount.Institution = source.InstitutionName
 	domainBankAccount.Currency = currencyOrDefault(source.Currency)
@@ -43,8 +43,12 @@ func ConvertTransaction(source Transaction) domain.BankTransaction {
 	domainBankTransaction.AccountID = source.AccountID
 	domainBankTransaction.Amount = source.Amount
 	domainBankTransaction.Currency = source.Currency
-	domainBankTransaction.Date = copyTime(source.Date)
+	domainBankTransaction.Date = copyDateTime(source.Date)
 	domainBankTransaction.Description = descriptionOrEmpty(source.Description)
+	if source.Merchant != nil {
+		xstring := *source.Merchant
+		domainBankTransaction.Merchant = &xstring
+	}
 	return domainBankTransaction
 }
 func ConvertTransactions(source []Transaction) []domain.BankTransaction {

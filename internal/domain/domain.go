@@ -9,28 +9,31 @@ import (
 var logger = log.For("domain")
 
 type BankAccount struct {
-	ID          int
+	ID          BankAccountID
 	Name        string
 	Institution string
 	Currency    string
 	Status      BankAccountStatus
 }
 
-type BankAccountStatus int
+type BankAccountID int
+
+type BankAccountStatus string
 
 const (
-	BankAccountStatusActive BankAccountStatus = iota
-	BankAccountStatusDisconnected
-	BankAccountStatusError
+	BankAccountStatusActive       BankAccountStatus = "ACTIVE"
+	BankAccountStatusDisconnected BankAccountStatus = "DISCONNECTED"
+	BankAccountStatusError        BankAccountStatus = "ERROR"
 )
 
 type BankTransaction struct {
 	Type        BankTransactionType
 	AccountID   int
-	Amount      int
+	Amount      float64
 	Currency    string
 	Date        time.Time
 	Description string
+	Merchant    *string
 }
 
 type BankTransactionType int

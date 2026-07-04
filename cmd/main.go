@@ -17,6 +17,10 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+const (
+	importTimeout = 10 * time.Minute // TODO: set to import interval once configurable
+)
+
 func main() {
 	if err := config.Read(".env"); err != nil {
 		fmt.Println(err)
@@ -70,7 +74,7 @@ func run() error {
 	eg.Go(func() error {
 		ctxImporter, cancelImporter := context.WithTimeoutCause(
 			ctxEg,
-			10*time.Minute,
+			importTimeout,
 			errors.New("timeout exceeded"),
 		)
 		defer cancelImporter()

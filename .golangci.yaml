@@ -23,19 +23,7 @@ linters:
     revive:
       rules:
         - name: exported
-          severity: warning
-          # disabled: false
-          # exclude: [""]
-          arguments:
-            - "check-private-receivers"
-            # - "disable-stuttering-check"
-            - "say-repetitive-instead-of-stutters"
-            - "check-public-interface"
-            # - "disable-checks-on-constants"
-            - "disable-checks-on-functions"
-            - "disable-checks-on-methods"
-            # - "disable-checks-on-types"
-            # - "disable-checks-on-variables"
+          disabled: true
     errcheck:
       check-blank: false
     govet:

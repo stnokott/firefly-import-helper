@@ -1,6 +1,9 @@
 package lunchflow
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 type Error struct {
 	Err     string `json:"Error"` // avoid clash with Error() function
@@ -41,12 +44,22 @@ type Transactions struct {
 type Transaction struct {
 	ID          string
 	AccountID   int
-	Amount      int
+	Amount      float64
 	Currency    string
-	Date        time.Time
+	Date        DateTime
 	Merchant    *string
 	Description *string
 	IsPending   *bool
+}
+
+type DateTime struct {
+	time.Time
+}
+
+func (dt *DateTime) UnmarshalJSON(data []byte) (err error) {
+	stripQuotes := strings.Trim(string(data), `"`)
+	dt.Time, err = time.Parse(time.DateOnly, stripQuotes)
+	return
 }
 
 type Balance struct {
