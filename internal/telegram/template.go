@@ -7,26 +7,9 @@ import (
 	"text/template"
 	"time"
 
-	telemodels "github.com/go-telegram/bot/models"
-
 	"github.com/stnokott/firefly-import-helper/internal/domain"
+	"github.com/stnokott/firefly-import-helper/internal/importer"
 )
-
-const templateParseMode = telemodels.ParseModeHTML
-
-var tmplTransaction = template.Must(template.New("telegramNotification").Parse(
-	`
-<b>💸 Neue Firefly-III-Transaktion 💸</b>
-<a href="{{.URL}}">Transaktion #{{.ID}}</a>
-{{range .SubTransactions}}
-	<tg-spoiler>✏️ {{.Description}}</tg-spoiler>
-	<tg-spoiler>🏷️ {{.CategoryName}}</tg-spoiler>
-	📆 {{.DateStr}}
-	<tg-spoiler>⚖️ {{.SourceName}} ➜ {{.DestinationName}}</tg-spoiler>
-	<tg-spoiler>💶 <b>{{.AmountStr}}</b></tg-spoiler>
-{{end}}
-`,
-))
 
 type tmplDataTransaction struct {
 	ID              int
@@ -42,6 +25,20 @@ type tmplDataSubTransaction struct {
 	DestinationName string
 	AmountStr       string
 }
+
+var tmplTransaction = template.Must(template.New("telegramMsgTransaction").Parse(
+	`
+<b>💸 Neue Firefly-III-Transaktion 💸</b>
+<a href="{{.URL}}">Transaktion #{{.ID}}</a>
+{{range .SubTransactions}}
+	<tg-spoiler>✏️ {{.Description}}</tg-spoiler>
+	<tg-spoiler>🏷️ {{.CategoryName}}</tg-spoiler>
+	📆 {{.DateStr}}
+	<tg-spoiler>⚖️ {{.SourceName}} ➜ {{.DestinationName}}</tg-spoiler>
+	<tg-spoiler>💶 <b>{{.AmountStr}}</b></tg-spoiler>
+{{end}}
+`,
+))
 
 func (b *Bot) renderTmplTransaction(t *domain.FireflyTransaction) (string, error) {
 	tData := make([]tmplDataSubTransaction, len(t.SubTransactions))
@@ -60,8 +57,32 @@ func (b *Bot) renderTmplTransaction(t *domain.FireflyTransaction) (string, error
 		URL:             b.fireflyBaseURL.JoinPath("/transactions/show/", strconv.Itoa(t.ID)).String(),
 		SubTransactions: tData,
 	}
+	return renderTmpl(tmplTransaction, data)
+}
+
+type tmplDataSummary struct {
+	Summaries []importer.Summary
+}
+
+var tmplSummary = template.Must(template.New("telegramMsgSummary").Parse(
+	`
+<b>Import Summary:</b>
+{{range .Summaries}}
+	{{if .Success}}✅{{else}}❌{{end}} {{.Account}}({{.Institution}}) ➜ {{.Info}}
+{{end}}
+`,
+))
+
+func (*Bot) renderTmplSummary(sum []importer.Summary) (string, error) {
+	data := tmplDataSummary{
+		Summaries: sum,
+	}
+	return renderTmpl(tmplSummary, data)
+}
+
+func renderTmpl(tmpl *template.Template, data any) (string, error) {
 	buf := new(bytes.Buffer)
-	if err := tmplTransaction.Execute(buf, &data); err != nil {
+	if err := tmpl.Execute(buf, data); err != nil {
 		return "", fmt.Errorf("could not render message template: %w", err)
 	}
 	return buf.String(), nil

@@ -70,12 +70,16 @@ func run() error {
 	eg.Go(func() error {
 		ctxImporter, cancelImporter := context.WithTimeoutCause(
 			ctxEg,
-			5*time.Minute,
+			10*time.Minute,
 			errors.New("timeout exceeded"),
 		)
 		defer cancelImporter()
-		return im.Run(ctxImporter)
+		return im.Import(ctxImporter)
 	})
 
+	defer func() {
+		// wait for potential shutdown actions in goroutines like sending goodbyte messages
+		time.Sleep(3 * time.Second)
+	}()
 	return eg.Wait()
 }

@@ -8,7 +8,7 @@ func ConvertAccount(source Account) domain.BankAccount {
 	var domainBankAccount domain.BankAccount
 	domainBankAccount.ID = source.ID
 	domainBankAccount.Name = source.Name
-	domainBankAccount.InstitutionName = source.InstitutionName
+	domainBankAccount.Institution = source.InstitutionName
 	domainBankAccount.Currency = currencyOrDefault(source.Currency)
 	domainBankAccount.Status = ConvertAccountStatus(source.Status)
 	return domainBankAccount

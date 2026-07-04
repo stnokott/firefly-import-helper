@@ -15,7 +15,7 @@ import (
 	"github.com/stnokott/firefly-import-helper/internal/log"
 )
 
-const httpRequestTimeout = 5 * time.Second
+const httpRequestTimeout = 10 * time.Second
 
 var logger = log.For("lunchflow")
 
@@ -129,7 +129,7 @@ func (c *Client) get(ctx context.Context, url string) (*http.Response, error) {
 	req.Header.Add("Accept", "application/json")
 	req.Header.Add("User-Agent", "github.com/stnokott/firefly-import-helper") // TODO: add version from goreleaser
 
-	logger.Debugf(">> %s %v?%s", req.Method, req.URL, req.URL.RawQuery)
+	logger.Debugf(">> %s %s", req.Method, req.URL.String())
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)

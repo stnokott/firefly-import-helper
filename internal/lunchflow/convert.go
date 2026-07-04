@@ -16,6 +16,7 @@ import (
 type Converter interface {
 	ConvertAccounts([]Account) []domain.BankAccount
 	//goverter:map Currency | currencyOrDefault
+	//goverter:map InstitutionName Institution
 	ConvertAccount(Account) domain.BankAccount
 	//goverter:enum:unknown BankAccountStatusError
 	//goverter:enum:map AccountStatusActive BankAccountStatusActive

@@ -9,11 +9,11 @@ import (
 var logger = log.For("domain")
 
 type BankAccount struct {
-	ID              int
-	Name            string
-	InstitutionName string
-	Currency        string
-	Status          BankAccountStatus
+	ID          int
+	Name        string
+	Institution string
+	Currency    string
+	Status      BankAccountStatus
 }
 
 type BankAccountStatus int

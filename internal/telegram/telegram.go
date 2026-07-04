@@ -30,9 +30,8 @@ const callbackDataPrefix = "category:"
 func NewBot() (*Bot, error) {
 	t, err := telebot.New(
 		config.C.TelegramBotToken,
-		telebot.WithCallbackQueryDataHandler(callbackDataPrefix, telebot.MatchTypePrefix, callbackQueryDataHandler),
+		telebot.WithCallbackQueryDataHandler(callbackDataPrefix, telebot.MatchTypePrefix, callbackHandlerCategory),
 		telebot.WithErrorsHandler(func(err error) {
-			logger.Infof("%#v", err)
 			logger.ErrorV(err)
 		}),
 	)
@@ -58,7 +57,7 @@ func (b *Bot) Run(ctx context.Context) {
 	ctxBot, cancelBot := context.WithCancel(context.Background())
 	go func() {
 		<-ctx.Done()
-		_, _ = b.t.SendMessage(ctx, &telebot.SendMessageParams{
+		_, _ = b.t.SendMessage(ctxBot, &telebot.SendMessageParams{
 			ChatID: b.chatID,
 			Text:   "Firefly-III Import Helper shutting down.",
 		})
@@ -78,10 +77,15 @@ func (b *Bot) MsgImportStarted(ctx context.Context) error {
 	return nil
 }
 
-func (b *Bot) MsgImportFinished(ctx context.Context) error {
-	_, err := b.t.SendMessage(ctx, &telebot.SendMessageParams{
-		ChatID: b.chatID,
-		Text:   "Import finished.",
+func (b *Bot) MsgImportFinished(ctx context.Context, sum []importer.Summary) error {
+	msg, err := b.renderTmplSummary(sum)
+	if err != nil {
+		return err
+	}
+	_, err = b.t.SendMessage(ctx, &telebot.SendMessageParams{
+		ChatID:    b.chatID,
+		Text:      msg,
+		ParseMode: telemodels.ParseModeHTML,
 	})
 	if err != nil {
 		return fmt.Errorf("could not send message: %w", err)
@@ -92,11 +96,11 @@ func (b *Bot) MsgImportFinished(ctx context.Context) error {
 func (b *Bot) sendTransactionMessage(ctx context.Context, t *domain.FireflyTransaction) error {
 	msg, err := b.renderTmplTransaction(t)
 	if err != nil {
-		return fmt.Errorf("failed to render template: %w", err)
+		return err
 	}
 	_, err = b.t.SendMessage(ctx, &telebot.SendMessageParams{
 		ChatID:         b.chatID,
-		ParseMode:      templateParseMode,
+		ParseMode:      telemodels.ParseModeHTML,
 		ProtectContent: true,
 		Text:           msg,
 		// ReplyMarkup: buildInlineKeyboard([]string{"A", "B", "C"}, ""),
@@ -107,7 +111,7 @@ func (b *Bot) sendTransactionMessage(ctx context.Context, t *domain.FireflyTrans
 	return nil
 }
 
-func callbackQueryDataHandler(ctx context.Context, bot *telebot.Bot, update *telemodels.Update) {
+func callbackHandlerCategory(ctx context.Context, bot *telebot.Bot, update *telemodels.Update) {
 	// answer callback from button press in chat
 	_, err := bot.AnswerCallbackQuery(ctx, &telebot.AnswerCallbackQueryParams{
 		CallbackQueryID: update.CallbackQuery.ID,
