@@ -22,7 +22,8 @@ const (
 )
 
 func main() {
-	if err := config.Read(".env"); err != nil {
+	cfg, err := config.Read(".env")
+	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 		return
@@ -34,21 +35,23 @@ func main() {
 	}
 	log.SetDefaultLevel(logLevel)
 
-	if err := run(); err != nil {
+	if err := run(cfg); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 		return
 	}
 }
 
-func run() error {
+func run(cfg *config.Config) error {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
 	defer cancel()
 
 	eg, ctxEg := errgroup.WithContext(ctx)
 
 	// create and start telegram messenger
-	messenger, err := telegram.NewBot()
+	messenger, err := telegram.NewBot(
+		cfg.TelegramBotToken, cfg.FireflyBaseURL.URL, cfg.TelegramChatID,
+	)
 	if err != nil {
 		return err
 	}
@@ -68,7 +71,7 @@ func run() error {
 	// 	return fmt.Errorf("could not create API client: %w", err)
 	// }
 
-	bank := lunchflow.NewClient(config.C.LunchflowAPIKey)
+	bank := lunchflow.NewClient(cfg.LunchflowAPIKey)
 
 	im := importer.New(messenger, bank)
 	eg.Go(func() error {

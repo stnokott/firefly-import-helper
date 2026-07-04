@@ -9,7 +9,6 @@ import (
 
 	telebot "github.com/go-telegram/bot"
 	telemodels "github.com/go-telegram/bot/models"
-	"github.com/stnokott/firefly-import-helper/internal/config"
 	"github.com/stnokott/firefly-import-helper/internal/domain"
 	"github.com/stnokott/firefly-import-helper/internal/importer"
 	"github.com/stnokott/firefly-import-helper/internal/log"
@@ -27,9 +26,9 @@ var _ importer.Messenger = (*Bot)(nil)
 
 const callbackDataPrefix = "category:"
 
-func NewBot() (*Bot, error) {
+func NewBot(token string, fireflyBaseURL url.URL, telegramChatID string) (*Bot, error) {
 	t, err := telebot.New(
-		config.C.TelegramBotToken,
+		token,
 		telebot.WithCallbackQueryDataHandler(callbackDataPrefix, telebot.MatchTypePrefix, callbackHandlerCategory),
 		telebot.WithErrorsHandler(func(err error) {
 			logger.ErrorV(err)
@@ -40,8 +39,8 @@ func NewBot() (*Bot, error) {
 	}
 	return &Bot{
 		t:              t,
-		fireflyBaseURL: config.C.FireflyBaseURL.URL,
-		chatID:         config.C.TelegramChatID,
+		fireflyBaseURL: fireflyBaseURL,
+		chatID:         telegramChatID,
 	}, nil
 }
 

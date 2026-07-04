@@ -10,8 +10,8 @@ import (
 	"github.com/kelseyhightower/envconfig"
 )
 
-// Spec contains the configuration data read from the env file.
-type Spec struct {
+// Config contains the configuration data read from environment variables.
+type Config struct {
 	TelegramBotToken   string `required:"true" envconfig:"TELEGRAM_BOT_TOKEN"`
 	TelegramChatID     string `required:"true" envconfig:"TELEGRAM_CHAT_ID"`
 	FireflyBaseURL     *URL   `required:"true" envconfig:"FIREFLY_BASE_URL"`
@@ -34,21 +34,16 @@ func (u *URL) Decode(v string) error {
 	return nil
 }
 
-// C is an instance of [Spec], allowing you to read config data.
-//
-// Make sure to call [Read] once before accessing it.
-var C Spec
-
 // Read reads the contents of "file", expecting an env-file like structure.
-// TODO: return config struct instead of global singleton
-func Read(file string) error {
+func Read(file string) (*Config, error) {
 	if err := godotenv.Load(file); err != nil {
-		return fmt.Errorf("could not read env file '%s': %w", file, err)
+		return nil, fmt.Errorf("could not read env file '%s': %w", file, err)
 	}
-	if err := envconfig.Process("", &C); err != nil {
+	c := new(Config)
+	if err := envconfig.Process("", c); err != nil {
 		buf := bytes.NewBuffer(nil)
-		_ = envconfig.Usagef("", &C, buf, envconfig.DefaultTableFormat)
-		return fmt.Errorf("%w: %s", err, buf.String())
+		_ = envconfig.Usagef("", &c, buf, envconfig.DefaultTableFormat)
+		return nil, fmt.Errorf("%w: %s", err, buf.String())
 	}
-	return nil
+	return c, nil
 }
