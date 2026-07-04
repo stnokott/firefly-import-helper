@@ -41,9 +41,7 @@ type Client struct {
 	httpClient *http.Client
 }
 
-var _ importer.BankConnection = (*Client)(nil)
-
-func NewClient(apiKey string) *Client {
+func NewClient(apiKey string) importer.BankConnection {
 	return &Client{
 		apiKey:  apiKey,
 		baseURL: lunchflowBaseURL,

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"os"
 	"os/signal"
@@ -18,11 +19,17 @@ import (
 )
 
 const (
+	configFile    = "config.yaml"
 	importTimeout = 10 * time.Minute // TODO: set to import interval once configurable
 )
 
 func main() {
-	cfg, err := config.Read(".env")
+	var doInit bool
+	flag.BoolVar(&doInit, "init", false, "when set, will bootstrap a config file and then exit")
+	flag.Parse()
+
+	// allow empty YAML when performing init since we want to bootstrap it during initialization
+	cfg, err := config.Read("config.yaml", doInit)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -35,7 +42,13 @@ func main() {
 	}
 	log.SetDefaultLevel(logLevel)
 
-	if err := run(cfg); err != nil {
+	if doInit {
+		err = bootstrapConfig(cfg)
+	} else {
+		err = run(cfg)
+	}
+
+	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 		return
@@ -89,4 +102,20 @@ func run(cfg *config.Config) error {
 		time.Sleep(3 * time.Second)
 	}()
 	return eg.Wait()
+}
+
+func bootstrapConfig(cfg *config.Config) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	bank := lunchflow.NewClient(cfg.LunchflowAPIKey)
+	accounts, err := bank.GetAccounts(ctx)
+	if err != nil {
+		return err
+	}
+	if err := config.WriteBootstrappedConfig(configFile, accounts); err != nil {
+		return err
+	}
+	fmt.Println("config written for", len(accounts), "accounts")
+	return nil
 }
