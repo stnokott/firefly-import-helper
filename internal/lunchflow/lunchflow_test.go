@@ -74,7 +74,7 @@ func TestListAccounts(t *testing.T) {
 func newMockedClient(t *testing.T, handler http.HandlerFunc) *Client {
 	srv := httptest.NewServer(http.HandlerFunc(handler))
 	t.Cleanup(srv.Close)
-	c := NewClient("123")
+	c := NewClient("123").(*Client)
 	c.httpClient = srv.Client()
 	c.baseURL = mustParseURL(srv.URL)
 	return c
