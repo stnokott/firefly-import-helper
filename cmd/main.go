@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/stnokott/firefly-import-helper/internal/config"
+	"github.com/stnokott/firefly-import-helper/internal/domain"
+	"github.com/stnokott/firefly-import-helper/internal/firefly"
 	"github.com/stnokott/firefly-import-helper/internal/importer"
 	"github.com/stnokott/firefly-import-helper/internal/log"
 	"github.com/stnokott/firefly-import-helper/internal/lunchflow"
@@ -55,38 +57,50 @@ func main() {
 	}
 }
 
+func bootstrapConfig(cfg *config.Config) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	bank := lunchflow.NewClient(cfg.LunchflowAPIKey)
+	accounts, err := bank.GetAccounts(ctx)
+	if err != nil {
+		return err
+	}
+	if err := config.WriteBootstrappedConfig(configFile, accounts); err != nil {
+		return err
+	}
+	fmt.Println("config written for", len(accounts), "accounts")
+	return nil
+}
+
 func run(cfg *config.Config) error {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
 	defer cancel()
 
-	eg, ctxEg := errgroup.WithContext(ctx)
-
-	// create and start telegram messenger
 	messenger, err := telegram.NewBot(
 		cfg.TelegramBotToken, cfg.FireflyBaseURL.URL, cfg.TelegramChatID,
 	)
 	if err != nil {
 		return err
 	}
+
+	bank := lunchflow.NewClient(cfg.LunchflowAPIKey)
+
+	ff, err := firefly.New(cfg.FireflyBaseURL.URL, cfg.FireflyAccessToken)
+	if err != nil {
+		return fmt.Errorf("could not create Firefly API client: %w", err)
+	}
+	if err := validateWithData(ctx, cfg, ff); err != nil {
+		return fmt.Errorf("config validation failed: %w", err)
+	}
+
+	im := importer.New(cfg, messenger, bank, ff)
+
+	eg, ctxEg := errgroup.WithContext(ctx)
 	eg.Go(func() error {
 		messenger.Run(ctxEg)
 		return nil
 	})
-
-	// create Firefly API client
-	// api, err := firefly.NewClientWithResponses(
-	// 	config.C.FireflyBaseURL.JoinPath("/api").String(),
-	// 	firefly.WithAccessToken(config.C.FireflyAccessToken),
-	// 	firefly.WithRequestLogger(log.For("firefly")),
-	// 	firefly.WithUserAgent("firefly-import-helper"), // TODO: add version from goreleaser
-	// )
-	// if err != nil {
-	// 	return fmt.Errorf("could not create API client: %w", err)
-	// }
-
-	bank := lunchflow.NewClient(cfg.LunchflowAPIKey)
-
-	im := importer.New(messenger, bank)
 	eg.Go(func() error {
 		ctxImporter, cancelImporter := context.WithTimeoutCause(
 			ctxEg,
@@ -104,18 +118,10 @@ func run(cfg *config.Config) error {
 	return eg.Wait()
 }
 
-func bootstrapConfig(cfg *config.Config) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	bank := lunchflow.NewClient(cfg.LunchflowAPIKey)
-	accounts, err := bank.GetAccounts(ctx)
+func validateWithData(ctx context.Context, cfg *config.Config, ff domain.FireflyConnector) error {
+	ffAccounts, err := ff.ListAccounts(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not list Firefly accounts: %w", err)
 	}
-	if err := config.WriteBootstrappedConfig(configFile, accounts); err != nil {
-		return err
-	}
-	fmt.Println("config written for", len(accounts), "accounts")
-	return nil
+	return cfg.ValidateFireflyIDs(ffAccounts)
 }

@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"net/url"
 	"os"
+	"slices"
 
 	"github.com/goccy/go-yaml"
 	"github.com/kelseyhightower/envconfig"
@@ -17,7 +18,9 @@ import (
 // Config contains the configuration data read from environment variables.
 type Config struct {
 	Env      `yaml:"-"` // filled from environment variables
-	Accounts []Account  `yaml:"accounts"`
+	Accounts Accounts   `yaml:"accounts"`
+
+	AccountsByBankID map[int]*Account `yaml:"-"` // filled from Accounts
 }
 
 type Env struct {
@@ -29,10 +32,20 @@ type Env struct {
 }
 
 type Account struct {
-	Name      string               `yaml:"name"`
-	BankID    domain.BankAccountID `yaml:"bank_id"`
-	FireflyID string               `yaml:"firefly_id"`
-	Ignore    bool                 `yaml:"ignore"`
+	Name      string `yaml:"name"`
+	BankID    int    `yaml:"bank_id"`
+	FireflyID string `yaml:"firefly_id"`
+	Ignore    bool   `yaml:"ignore"`
+}
+
+type Accounts []*Account
+
+func (a Accounts) Active() Accounts {
+	dst := make(Accounts, len(a))
+	copy(dst, a)
+	return slices.DeleteFunc(dst, func(acc *Account) bool {
+		return acc.Ignore
+	})
 }
 
 type URL struct {
@@ -51,12 +64,33 @@ func (u *URL) Decode(v string) error {
 }
 
 func (c *Config) validate() error {
-	for _, acc := range c.Accounts {
+	seenIDs := map[int]struct{}{}
+	for _, acc := range c.Accounts.Active() {
 		if acc.BankID == 0 {
 			return fmt.Errorf(`account "%s": "bank_id" is required - re-initialize config if you accidentally deleted it`, acc.Name)
 		}
-		if acc.FireflyID == "" && !acc.Ignore {
+		if acc.FireflyID == "" {
 			return fmt.Errorf(`account "%s": set "firefly_id" or ignore this account`, acc.Name)
+		}
+
+		if _, seen := seenIDs[acc.BankID]; seen {
+			return fmt.Errorf(`account "%s": found duplicate "bank_id" %d - please re-initialize the config`, acc.Name, acc.BankID)
+		}
+		seenIDs[acc.BankID] = struct{}{}
+	}
+	return nil
+}
+
+// ValidateFireflyIDs ensures all Firefly account IDs in the config match actual IDs in the Firefly instance.
+func (c *Config) ValidateFireflyIDs(ffAccounts []domain.FireflyAccount) error {
+	accountIDs := map[string]struct{}{}
+	for _, acc := range ffAccounts {
+		accountIDs[acc.ID] = struct{}{}
+	}
+
+	for _, acc := range c.Accounts.Active() {
+		if _, exists := accountIDs[acc.FireflyID]; !exists {
+			return fmt.Errorf(`account "%s": "firefly_id" "%s" not found in Firefly`, acc.Name, acc.FireflyID)
 		}
 	}
 	return nil
@@ -81,8 +115,14 @@ func Read(yamlFile string, allowEmptyYAML bool) (*Config, error) {
 	if err = readYAML(yamlFile, cfg); err != nil {
 		return nil, err
 	}
+
 	if err = cfg.validate(); err != nil {
 		return nil, fmt.Errorf("config validation error: %w", err)
+	}
+
+	cfg.AccountsByBankID = make(map[int]*Account, len(cfg.Accounts))
+	for _, acc := range cfg.Accounts {
+		cfg.AccountsByBankID[acc.BankID] = acc
 	}
 	return cfg, nil
 }
@@ -151,9 +191,9 @@ func WriteBootstrappedConfig(file string, accounts []domain.BankAccount) error {
 }
 
 func createBootstrappedConfig(accs []domain.BankAccount) *Config {
-	transformed := make([]Account, len(accs))
+	transformed := make([]*Account, len(accs))
 	for i, acc := range accs {
-		transformed[i] = Account{
+		transformed[i] = &Account{
 			BankID: acc.ID,
 			Name:   fmt.Sprintf("%s(%s)", acc.Name, acc.Institution),
 		}

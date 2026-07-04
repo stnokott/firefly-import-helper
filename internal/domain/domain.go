@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"context"
 	"time"
 
 	"github.com/stnokott/firefly-import-helper/internal/log"
@@ -8,15 +9,21 @@ import (
 
 var logger = log.For("domain")
 
+type BankConnector interface {
+	GetAccounts(ctx context.Context) ([]BankAccount, error)
+	GetBalance(ctx context.Context, id int) (float64, error)
+	// GetTransactions returns the transactions of the given account within the given timeframe.
+	GetTransactions(ctx context.Context, id int, from time.Time, to time.Time) ([]BankTransaction, error)
+	MinTransactionTime() time.Time
+}
+
 type BankAccount struct {
-	ID          BankAccountID
+	ID          int
 	Name        string
 	Institution string
 	Currency    string
 	Status      BankAccountStatus
 }
-
-type BankAccountID int
 
 type BankAccountStatus string
 
@@ -42,6 +49,16 @@ const (
 	BankTransactionTypeWithdrawal BankTransactionType = iota
 	BankTransactionTypeDeposit
 )
+
+type FireflyConnector interface {
+	ListAccounts(ctx context.Context) ([]FireflyAccount, error)
+}
+
+type FireflyAccount struct {
+	ID     string
+	Name   string
+	Active bool
+}
 
 type FireflyTransaction struct {
 	ID              int

@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/stnokott/firefly-import-helper/internal/domain"
-	"github.com/stnokott/firefly-import-helper/internal/importer"
 	"github.com/stnokott/firefly-import-helper/internal/log"
 )
 
@@ -41,7 +40,7 @@ type Client struct {
 	httpClient *http.Client
 }
 
-func NewClient(apiKey string) importer.BankConnection {
+func NewClient(apiKey string) domain.BankConnector {
 	return &Client{
 		apiKey:  apiKey,
 		baseURL: lunchflowBaseURL,
@@ -71,7 +70,7 @@ func (c *Client) listAccounts(ctx context.Context) (*Accounts, error) {
 	return parseResponse[Accounts](resp, 200)
 }
 
-func (c *Client) GetBalance(ctx context.Context, id domain.BankAccountID) (float64, error) {
+func (c *Client) GetBalance(ctx context.Context, id int) (float64, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	balance, err := c.getAccountBalance(ctx, int(id))
@@ -90,7 +89,7 @@ func (c *Client) getAccountBalance(ctx context.Context, id int) (*Balance, error
 	return parseResponse[Balance](resp, 200)
 }
 
-func (c *Client) GetTransactions(ctx context.Context, id domain.BankAccountID, from time.Time, to time.Time) ([]domain.BankTransaction, error) {
+func (c *Client) GetTransactions(ctx context.Context, id int, from time.Time, to time.Time) ([]domain.BankTransaction, error) {
 	minFromTime := c.MinTransactionTime()
 	if from.Before(minFromTime) {
 		return nil, fmt.Errorf("can not query transactions earlier than %v", minFromTime.Format(time.DateTime))

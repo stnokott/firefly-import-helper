@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/stnokott/firefly-import-helper/internal/config"
 	"github.com/stnokott/firefly-import-helper/internal/domain"
 	"github.com/stnokott/firefly-import-helper/internal/log"
 )
@@ -12,14 +13,18 @@ import (
 var logger = log.For("importer")
 
 type Importer struct {
-	msg  Messenger
-	bank BankConnection
+	cfg     *config.Config
+	msg     Messenger
+	bank    domain.BankConnector
+	firefly domain.FireflyConnector
 }
 
-func New(msg Messenger, bank BankConnection) *Importer {
+func New(cfg *config.Config, msg Messenger, bank domain.BankConnector, firefly domain.FireflyConnector) *Importer {
 	return &Importer{
-		msg:  msg,
-		bank: bank,
+		cfg:     cfg,
+		msg:     msg,
+		bank:    bank,
+		firefly: firefly,
 	}
 }
 
@@ -35,14 +40,6 @@ type Summary struct {
 	Institution string
 	Success     bool
 	Info        string
-}
-
-type BankConnection interface {
-	GetAccounts(ctx context.Context) ([]domain.BankAccount, error)
-	GetBalance(ctx context.Context, id domain.BankAccountID) (float64, error)
-	// GetTransactions returns the transactions of the given account within the given timeframe.
-	GetTransactions(ctx context.Context, id domain.BankAccountID, from time.Time, to time.Time) ([]domain.BankTransaction, error)
-	MinTransactionTime() time.Time
 }
 
 func (im *Importer) Import(ctx context.Context) (err error) {
@@ -65,19 +62,22 @@ func (im *Importer) Import(ctx context.Context) (err error) {
 
 	sum := make([]Summary, len(accounts))
 	for i, acc := range accounts {
-		logger.Infof("importing %d/%d: %s @ %s (%v)", i+1, len(accounts), acc.Name, acc.Institution, acc.Status)
+		logger.Infof("importing %d/%d: %s @ %s", i+1, len(accounts), acc.Name, acc.Institution)
 		summary := Summary{
 			Account:     acc.Name,
 			Institution: acc.Institution,
 		}
-		switch acc.Status {
-		case domain.BankAccountStatusDisconnected:
+		switch {
+		case im.cfg.AccountsByBankID[acc.ID].Ignore:
+			summary.Success = true
+			summary.Info = "Ignored via config"
+		case acc.Status == domain.BankAccountStatusDisconnected:
 			summary.Success = false
 			summary.Info = "Reauthorization required"
-		case domain.BankAccountStatusError:
+		case acc.Status == domain.BankAccountStatusError:
 			summary.Success = false
 			summary.Info = "Issue with data provider"
-		case domain.BankAccountStatusActive:
+		case acc.Status == domain.BankAccountStatusActive:
 			imported, err := im.doImport(ctx, acc)
 			if err != nil {
 				logger.ErrorV(err)

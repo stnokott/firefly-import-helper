@@ -1,11 +1,10 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/oapi-codegen/oapi-codegen/HEAD/configuration-schema.json
-package: firefly
-output: firefly.gen.go
+package: generated
+output: generated/firefly.gen.go
 output-options:
   include-tags:
-    - about
+    - accounts
     - transactions
-    - webhooks
   nullable-type: true
   overlay:
     path: overlay.yaml
