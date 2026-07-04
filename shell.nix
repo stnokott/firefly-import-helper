@@ -13,6 +13,8 @@ pkgs.mkShell {
     hadolint
     # yaml
     yaml-language-server
+    # tests
+    lefthook
   ];
   shellHook = ''
     go env -w CGO_ENABLED=0

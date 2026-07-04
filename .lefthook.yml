@@ -1,0 +1,16 @@
+assert_lefthook_installed: true
+
+pre-commit:
+  jobs:
+    - run: go test -v ./...
+      glob:
+        - "*.go"
+        - go.mod
+        - go.sum
+      tags: [test]
+    - run: go mod tidy -diff
+      glob:
+        - "*.go"
+        - go.mod
+        - go.sum
+      tags: [test]
