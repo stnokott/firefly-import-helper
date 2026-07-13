@@ -15,20 +15,20 @@ import (
 	"github.com/stnokott/firefly-import-helper/internal/domain"
 )
 
-// Config contains the configuration data read from environment variables.
-type Config struct {
-	Env      `yaml:"-"` // filled from environment variables
-	Accounts Accounts   `yaml:"accounts"`
-
-	AccountsByBankID map[int]*Account `yaml:"-"` // filled from Accounts
-}
-
+// Env contains the configuration data read from environment variables
 type Env struct {
 	TelegramBotToken   string `required:"true" envconfig:"TELEGRAM_BOT_TOKEN"`
 	TelegramChatID     string `required:"true" envconfig:"TELEGRAM_CHAT_ID"`
 	FireflyBaseURL     *URL   `required:"true" envconfig:"FIREFLY_BASE_URL"`
 	FireflyAccessToken string `required:"true" envconfig:"FIREFLY_ACCESS_TOKEN"`
 	LunchflowAPIKey    string `required:"true" envconfig:"LUNCHFLOW_API_KEY"`
+}
+
+// YAML contains the configuration data read from the config YAML file.
+type YAML struct {
+	Accounts Accounts `yaml:"accounts"`
+
+	AccountsByBankID map[int]*Account `yaml:"-"` // internally derived from Accounts
 }
 
 type Account struct {
@@ -63,14 +63,14 @@ func (u *URL) Decode(v string) error {
 	return nil
 }
 
-func (c *Config) validate() error {
+func (cfg *YAML) validate() error {
 	seenIDs := map[int]struct{}{}
-	for _, acc := range c.Accounts.Active() {
+	for _, acc := range cfg.Accounts.Active() {
 		if acc.BankID == 0 {
 			return fmt.Errorf(`account "%s": "bank_id" is required - re-initialize config if you accidentally deleted it`, acc.Name)
 		}
 		if acc.FireflyID == "" {
-			return fmt.Errorf(`account "%s": set "firefly_id" or ignore this account`, acc.Name)
+			return fmt.Errorf(`account "%s": set "firefly_id" or "ignore: true"`, acc.Name)
 		}
 
 		if _, seen := seenIDs[acc.BankID]; seen {
@@ -82,13 +82,13 @@ func (c *Config) validate() error {
 }
 
 // ValidateFireflyIDs ensures all Firefly account IDs in the config match actual IDs in the Firefly instance.
-func (c *Config) ValidateFireflyIDs(ffAccounts []domain.FireflyAccount) error {
+func (cfg *YAML) ValidateFireflyIDs(ffAccounts []domain.FireflyAccount) error {
 	accountIDs := map[string]struct{}{}
 	for _, acc := range ffAccounts {
 		accountIDs[acc.ID] = struct{}{}
 	}
 
-	for _, acc := range c.Accounts.Active() {
+	for _, acc := range cfg.Accounts.Active() {
 		if _, exists := accountIDs[acc.FireflyID]; !exists {
 			return fmt.Errorf(`account "%s": "firefly_id" "%s" not found in Firefly`, acc.Name, acc.FireflyID)
 		}
@@ -96,27 +96,18 @@ func (c *Config) ValidateFireflyIDs(ffAccounts []domain.FireflyAccount) error {
 	return nil
 }
 
-// Read reads config from environment variables and a config file
-func Read(yamlFile string, allowEmptyYAML bool) (*Config, error) {
-	env, err := readEnv()
-	if err != nil {
-		return nil, err
-	}
-	cfg := &Config{
-		Env: *env,
-	}
-	if !fileExists(yamlFile) {
-		if allowEmptyYAML {
-			return cfg, nil
-		}
+// ReadYAML reads yamlFile into a [YAML] instance.
+func ReadYAML(yamlFile string) (*YAML, error) {
+	cfg := new(YAML)
+	if !Exists(yamlFile) {
 		return nil, ErrConfigFileNotExist
 	}
 
-	if err = readYAML(yamlFile, cfg); err != nil {
+	if err := readYAML(yamlFile, cfg); err != nil {
 		return nil, err
 	}
 
-	if err = cfg.validate(); err != nil {
+	if err := cfg.validate(); err != nil {
 		return nil, fmt.Errorf("config validation error: %w", err)
 	}
 
@@ -127,27 +118,7 @@ func Read(yamlFile string, allowEmptyYAML bool) (*Config, error) {
 	return cfg, nil
 }
 
-var ErrConfigFileNotExist = errors.New("config file does not exist")
-
-func readEnv() (*Env, error) {
-	env := new(Env)
-	if err := envconfig.Process("", env); err != nil {
-		buf := bytes.NewBuffer(nil)
-		_ = envconfig.Usagef("", env, buf, envconfig.DefaultTableFormat)
-		return nil, fmt.Errorf("%w: %s", err, buf.String())
-	}
-	return env, nil
-}
-
-func fileExists(file string) bool {
-	_, err := os.Stat(file)
-	if err == nil {
-		return true
-	}
-	return !errors.Is(err, fs.ErrNotExist)
-}
-
-func readYAML(file string, cfg *Config) error {
+func readYAML(file string, cfg *YAML) error {
 	yamlBytes, err := os.ReadFile(file)
 	if err != nil {
 		return fmt.Errorf("could not read config file %s: %w", file, err)
@@ -159,28 +130,41 @@ func readYAML(file string, cfg *Config) error {
 	return nil
 }
 
+var (
+	ErrConfigFileNotExist = errors.New("config file does not exist")
+	ErrConfigFileExist    = errors.New("config file already exists")
+)
+
+func ReadEnv() (*Env, error) {
+	env := new(Env)
+	if err := envconfig.Process("", env); err != nil {
+		buf := bytes.NewBuffer(nil)
+		_ = envconfig.Usagef("", env, buf, envconfig.DefaultTableFormat)
+		return nil, fmt.Errorf("%w: %s", err, buf.String())
+	}
+	return env, nil
+}
+
+func Exists(file string) bool {
+	_, err := os.Stat(file)
+	if err == nil {
+		return true
+	}
+	return !errors.Is(err, fs.ErrNotExist)
+}
+
 func WriteBootstrappedConfig(file string, accounts []domain.BankAccount) error {
-	if fileExists(file) {
-		return errors.New("config file already exists")
+	if Exists(file) {
+		return ErrConfigFileExist
 	}
 	cfg := createBootstrappedConfig(accounts)
-	data, err := yaml.MarshalWithOptions(cfg, yaml.WithComment(yaml.CommentMap{
-		"$.accounts": []*yaml.Comment{
-			{
-				Position: 0,
-				Texts: []string{
-					" This is the initial bootstrapped config.",
-					"",
-					` Set "firefly_id" to control which Firefly account a transaction from`,
-					" a bank account gets added to.",
-					"",
-					` Set "ignore" to true to exclude a bank account from processing.`,
-					"",
-					` The "name" field only exists for identification, feel free to modify it.`,
-				},
-			},
-		},
-	}), yaml.Indent(2), yaml.IndentSequence(true))
+
+	data, err := yaml.MarshalWithOptions(
+		cfg,
+		yaml.WithComment(yamlCommentMap(cfg)),
+		yaml.Indent(2),
+		yaml.IndentSequence(true),
+	)
 	if err != nil {
 		return fmt.Errorf("could not marshal YAML: %w", err)
 	}
@@ -190,7 +174,7 @@ func WriteBootstrappedConfig(file string, accounts []domain.BankAccount) error {
 	return nil
 }
 
-func createBootstrappedConfig(accs []domain.BankAccount) *Config {
+func createBootstrappedConfig(accs []domain.BankAccount) *YAML {
 	transformed := make([]*Account, len(accs))
 	for i, acc := range accs {
 		transformed[i] = &Account{
@@ -198,7 +182,32 @@ func createBootstrappedConfig(accs []domain.BankAccount) *Config {
 			Name:   fmt.Sprintf("%s(%s)", acc.Name, acc.Institution),
 		}
 	}
-	return &Config{
+	return &YAML{
 		Accounts: transformed,
 	}
+}
+
+func yamlCommentMap(cfg *YAML) yaml.CommentMap {
+	cm := yaml.CommentMap{
+		"$.accounts": []*yaml.Comment{
+			yaml.HeadComment(
+				" This is the initial bootstrapped config.",
+				"",
+				` Set "firefly_id" to control which Firefly account a transaction from`,
+				" a bank account gets added to.",
+				"",
+				` Set "ignore" to true to exclude a bank account from processing.`,
+				"",
+				` The "name" field only exists for identification, feel free to modify it.`,
+			),
+		},
+	}
+	// yaml library has a limitation which doesn't allow comments on children of wildcard "[*]" selectors,
+	// so we need to generate a dedicated comment for each list item instead of using the wildcard.
+	for i := range cfg.Accounts {
+		cm[fmt.Sprintf("$.accounts[%d].bank_id", i)] = []*yaml.Comment{
+			yaml.LineComment(" DO NOT MODIFY"),
+		}
+	}
+	return cm
 }

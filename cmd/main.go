@@ -30,8 +30,7 @@ func main() {
 	flag.BoolVar(&doInit, "init", false, "when set, will bootstrap a config file and then exit")
 	flag.Parse()
 
-	// allow empty YAML when performing init since we want to bootstrap it during initialization
-	cfg, err := config.Read("config.yaml", doInit)
+	env, err := config.ReadEnv()
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -45,9 +44,9 @@ func main() {
 	log.SetDefaultLevel(logLevel)
 
 	if doInit {
-		err = bootstrapConfig(cfg)
+		err = bootstrapConfig(env)
 	} else {
-		err = run(cfg)
+		err = run(env)
 	}
 
 	if err != nil {
@@ -57,11 +56,11 @@ func main() {
 	}
 }
 
-func bootstrapConfig(cfg *config.Config) error {
+func bootstrapConfig(env *config.Env) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	bank := lunchflow.NewClient(cfg.LunchflowAPIKey)
+	bank := lunchflow.NewClient(env.LunchflowAPIKey)
 	accounts, err := bank.GetAccounts(ctx)
 	if err != nil {
 		return err
@@ -73,20 +72,25 @@ func bootstrapConfig(cfg *config.Config) error {
 	return nil
 }
 
-func run(cfg *config.Config) error {
+func run(env *config.Env) error {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
 	defer cancel()
 
+	cfg, err := config.ReadYAML(configFile)
+	if err != nil {
+		return err
+	}
+
 	messenger, err := telegram.NewBot(
-		cfg.TelegramBotToken, cfg.FireflyBaseURL.URL, cfg.TelegramChatID,
+		env.TelegramBotToken, env.FireflyBaseURL.URL, env.TelegramChatID,
 	)
 	if err != nil {
 		return err
 	}
 
-	bank := lunchflow.NewClient(cfg.LunchflowAPIKey)
+	bank := lunchflow.NewClient(env.LunchflowAPIKey)
 
-	ff, err := firefly.New(cfg.FireflyBaseURL.URL, cfg.FireflyAccessToken)
+	ff, err := firefly.New(env.FireflyBaseURL.URL, env.FireflyAccessToken)
 	if err != nil {
 		return fmt.Errorf("could not create Firefly API client: %w", err)
 	}
@@ -118,7 +122,7 @@ func run(cfg *config.Config) error {
 	return eg.Wait()
 }
 
-func validateWithData(ctx context.Context, cfg *config.Config, ff domain.FireflyConnector) error {
+func validateWithData(ctx context.Context, cfg *config.YAML, ff domain.FireflyConnector) error {
 	ffAccounts, err := ff.ListAccounts(ctx)
 	if err != nil {
 		return fmt.Errorf("could not list Firefly accounts: %w", err)

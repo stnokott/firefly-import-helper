@@ -13,13 +13,13 @@ import (
 var logger = log.For("importer")
 
 type Importer struct {
-	cfg     *config.Config
+	cfg     *config.YAML
 	msg     Messenger
 	bank    domain.BankConnector
 	firefly domain.FireflyConnector
 }
 
-func New(cfg *config.Config, msg Messenger, bank domain.BankConnector, firefly domain.FireflyConnector) *Importer {
+func New(cfg *config.YAML, msg Messenger, bank domain.BankConnector, firefly domain.FireflyConnector) *Importer {
 	return &Importer{
 		cfg:     cfg,
 		msg:     msg,
