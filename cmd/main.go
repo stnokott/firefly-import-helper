@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/stnokott/firefly-import-helper/internal/config"
+	"github.com/stnokott/firefly-import-helper/internal/domain"
 	"github.com/stnokott/firefly-import-helper/internal/firefly"
 	"github.com/stnokott/firefly-import-helper/internal/importer"
 	"github.com/stnokott/firefly-import-helper/internal/log"
@@ -25,8 +26,8 @@ const (
 )
 
 func main() {
-	var doInit bool
-	flag.BoolVar(&doInit, "init", false, "when set, will bootstrap a config file and then exit")
+	doInit := flag.Bool("init", false, "when set, will bootstrap a config file and then exit")
+	doDryRun := flag.Bool("dry-run", false, "when set, will not modify any Firefly data")
 	flag.Parse()
 
 	env, err := config.ReadEnv()
@@ -42,10 +43,10 @@ func main() {
 	}
 	log.SetDefaultLevel(logLevel)
 
-	if doInit {
+	if *doInit {
 		err = bootstrapConfig(env)
 	} else {
-		err = run(env)
+		err = run(env, *doDryRun)
 	}
 
 	if err != nil {
@@ -71,7 +72,7 @@ func bootstrapConfig(env *config.Env) error {
 	return nil
 }
 
-func run(env *config.Env) error {
+func run(env *config.Env, dryRun bool) error {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
 	defer cancel()
 
@@ -93,8 +94,12 @@ func run(env *config.Env) error {
 	if err != nil {
 		return fmt.Errorf("could not create Firefly API client: %w", err)
 	}
+	ffWriter := domain.FireflyWriter(ff)
+	if dryRun {
+		ffWriter = firefly.NewNoopWriter()
+	}
 
-	im, err := importer.New(cfg, messenger, bank, ff)
+	im, err := importer.New(cfg, messenger, bank, ff, ffWriter)
 	if err != nil {
 		return err
 	}
@@ -111,7 +116,7 @@ func run(env *config.Env) error {
 			errors.New("timeout exceeded"),
 		)
 		defer cancelImporter()
-		return im.Import(ctxImporter)
+		return im.Import(ctxImporter, dryRun)
 	})
 
 	defer func() {

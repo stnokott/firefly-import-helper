@@ -15,6 +15,10 @@ import (
 	"github.com/stnokott/firefly-import-helper/internal/domain"
 )
 
+const (
+	AppName = "github.com/stnokott/firefly-import-helper" // TODO: add version from build
+)
+
 // Env contains the configuration data read from environment variables
 type Env struct {
 	TelegramBotToken   string `required:"true" envconfig:"TELEGRAM_BOT_TOKEN"`

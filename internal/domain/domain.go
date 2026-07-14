@@ -35,6 +35,8 @@ const (
 )
 
 type BankTransaction struct {
+	ID          string
+	IsPending   bool
 	Type        BankTransactionType
 	AccountID   int
 	Amount      float64
@@ -44,15 +46,19 @@ type BankTransaction struct {
 	Merchant    *string
 }
 
-type BankTransactionType int
+type BankTransactionType string
 
 const (
-	BankTransactionTypeWithdrawal BankTransactionType = iota
-	BankTransactionTypeDeposit
+	BankTransactionTypeWithdrawal BankTransactionType = "WITHDRAWAL"
+	BankTransactionTypeDeposit    BankTransactionType = "DEPOSIT"
 )
 
-type FireflyConnector interface {
+type FireflyReader interface {
 	ListAssetAccounts(ctx context.Context) (FireflyAccounts, error)
+}
+
+type FireflyWriter interface {
+	CreateTransaction(ctx context.Context, accountID string, t BankTransaction) (string, error)
 }
 
 type FireflyAccount struct {
@@ -71,25 +77,4 @@ func (a FireflyAccounts) Active() iter.Seq[FireflyAccount] {
 			}
 		}
 	}
-}
-
-type FireflyTransaction struct {
-	ID              int
-	CreatedAt       time.Time
-	User            int
-	SubTransactions []*FireflySubTransaction
-}
-
-type FireflySubTransaction struct {
-	Amount               float64
-	CurrencySymbol       string
-	CategoryID           *string
-	CategoryName         *string
-	Date                 time.Time
-	Description          string
-	DestinationName      string
-	SourceName           string
-	TransactionJournalID *string
-	Type                 BankTransactionType
-	User                 int
 }

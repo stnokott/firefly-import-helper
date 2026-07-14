@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"strings"
 
+	"github.com/oapi-codegen/nullable"
+	"github.com/stnokott/firefly-import-helper/internal/config"
 	"github.com/stnokott/firefly-import-helper/internal/domain"
 	"github.com/stnokott/firefly-import-helper/internal/firefly/generated"
 	"github.com/stnokott/firefly-import-helper/internal/log"
@@ -18,16 +19,21 @@ import (
 
 var logger = log.For("firefly")
 
-type Client struct {
-	api generated.ClientInterface
+type client struct {
+	api generated.ClientWithResponsesInterface
 }
 
-func New(baseURL url.URL, token string) (domain.FireflyConnector, error) {
-	api, err := generated.NewClient(
+type FireflyReadWriter interface {
+	domain.FireflyReader
+	domain.FireflyWriter
+}
+
+func New(baseURL url.URL, token string) (FireflyReadWriter, error) {
+	api, err := generated.NewClientWithResponses(
 		baseURL.JoinPath("/api").String(),
 		generated.WithRequestEditorFn(func(ctx context.Context, req *http.Request) error {
 			req.Header.Add("Authorization", "Bearer "+token)
-			req.Header.Add("User-Agent", "firefly-importer-helper") // TODO: add version from goreleaser
+			req.Header.Add("User-Agent", config.AppName)
 			logger.Debugf(">> %s %v?%s", req.Method, req.URL, req.URL.RawQuery)
 			return nil
 		}),
@@ -36,17 +42,18 @@ func New(baseURL url.URL, token string) (domain.FireflyConnector, error) {
 		return nil, fmt.Errorf("could not create API client: %w", err)
 	}
 
-	return &Client{
+	return &client{
 		api: api,
 	}, nil
 }
 
-func (c *Client) ListAssetAccounts(ctx context.Context) (domain.FireflyAccounts, error) {
-	requestFunc := func(page int32) (*http.Response, error) {
-		return c.api.ListAccount(ctx, &generated.ListAccountParams{
+func (c *client) ListAssetAccounts(ctx context.Context) (domain.FireflyAccounts, error) {
+	requestFunc := func(page int32) (int, []byte, error) {
+		resp, err := c.api.ListAccountWithResponse(ctx, &generated.ListAccountParams{
 			Page: new(page),
 			Type: new(generated.AccountTypeFilterAssetAccount),
 		})
+		return resp.StatusCode(), resp.Body, err
 	}
 	accounts, err := paginatedRequest[generated.AccountRead](requestFunc)
 	if err != nil {
@@ -55,20 +62,42 @@ func (c *Client) ListAssetAccounts(ctx context.Context) (domain.FireflyAccounts,
 	return ConvertAccounts(accounts), nil
 }
 
-func paginatedRequest[V any](get func(page int32) (*http.Response, error)) ([]V, error) {
+func (c *client) CreateTransaction(ctx context.Context, accountID string, t domain.BankTransaction) (string, error) {
+	converted := ConvertTransaction(t, accountID)
+	resp, err := c.api.StoreTransactionWithFormdataBodyWithResponse(ctx, nil, generated.TransactionStore{
+		ApplyRules:           new(true),
+		ErrorIfDuplicateHash: new(true),
+		GroupTitle:           nullable.NewNullNullable[string](),
+		Transactions:         []generated.TransactionSplitStore{converted},
+	})
+	if err != nil {
+		return "", fmt.Errorf("could not create transaction: %w", err)
+	}
+	if resp.StatusCode() != 200 {
+		return "", errGenericResponse(resp.Status(), resp.Body)
+	}
+	return resp.ApplicationvndApiJSON200.Data.Id, nil
+}
+
+func paginatedRequest[V any](get func(page int32) (status int, body []byte, err error)) ([]V, error) {
 	var result []V
 	for page := int32(1); ; page++ {
-		resp, err := get(page)
+		status, resp, err := get(page)
 		if err != nil {
 			return nil, err
 		}
 
-		if resp.StatusCode != 200 {
-			return nil, unmarshalErr(resp)
+		if status != 200 {
+			return nil, errGenericResponse(http.StatusText(status), resp)
 		}
 
-		parsed, err := unmarshalResp[V](resp)
-		if err != nil {
+		type paginatedResponse[V any] struct {
+			Data []V             `json:"data"`
+			Meta *generated.Meta `json:"meta"`
+		}
+
+		parsed := new(paginatedResponse[V])
+		if err := json.Unmarshal(resp, parsed); err != nil {
 			return nil, fmt.Errorf("page %d: %w", page, err)
 		}
 		if result == nil {
@@ -94,47 +123,21 @@ func paginatedRequest[V any](get func(page int32) (*http.Response, error)) ([]V,
 	}
 }
 
-type paginatedResponse[V any] struct {
-	Data []V             `json:"data"`
-	Meta *generated.Meta `json:"meta"`
-}
-
-func unmarshalResp[V any](resp *http.Response) (*paginatedResponse[V], error) {
-	defer resp.Body.Close()
-	result := new(paginatedResponse[V])
-	if err := json.NewDecoder(resp.Body).Decode(result); err != nil {
-		return nil, fmt.Errorf("could not unmarshal response body for status %d: %w", resp.StatusCode, err)
-	}
-	return result, nil
-}
-
-func unmarshalErr(resp *http.Response) error {
-	type ErrResult struct {
+func errGenericResponse(statusText string, body []byte) error {
+	var e struct {
 		Message   *string `json:"message"`
 		Exception *string `json:"exception"`
 	}
-
-	defer resp.Body.Close()
-	respBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("could not read response body for status %d: %w", resp.StatusCode, err)
+	if err := json.Unmarshal(body, &e); err != nil {
+		return fmt.Errorf("could not unmarshal response JSON for status %s: %w - '%s'", statusText, err, string(body))
 	}
 
-	e := new(ErrResult)
-	if err := json.Unmarshal(respBytes, e); err != nil {
-		return fmt.Errorf("could not unmarshal response JSON for status %d: %w - '%s'", resp.StatusCode, err, string(respBytes))
-	}
-
-	return errGenericResponse(resp.Status, e.Exception, e.Message)
-}
-
-func errGenericResponse(exceptionType string, exception, message *string) error {
 	infos := make([]string, 0, 2)
-	if exception != nil {
-		infos = append(infos, *exception)
+	if e.Exception != nil {
+		infos = append(infos, *e.Exception)
 	}
-	if message != nil {
-		infos = append(infos, *message)
+	if e.Message != nil {
+		infos = append(infos, *e.Message)
 	}
-	return fmt.Errorf("%s: %s", exceptionType, strings.Join(infos, " - "))
+	return fmt.Errorf("%s: %s", statusText, strings.Join(infos, " - "))
 }

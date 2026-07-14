@@ -1,6 +1,7 @@
 assert_lefthook_installed: true
 
 pre-commit:
+  parallel: true
   jobs:
     - run: go test -v ./...
       glob:
@@ -14,3 +15,9 @@ pre-commit:
         - go.mod
         - go.sum
       tags: [test]
+    - run: golangci-lint run --config=.golangci.yaml
+      glob:
+        - "*.go"
+        - go.mod
+        - go.sum
+      tags: [lint]

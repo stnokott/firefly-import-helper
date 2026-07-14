@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/stnokott/firefly-import-helper/internal/config"
 	"github.com/stnokott/firefly-import-helper/internal/domain"
 	"github.com/stnokott/firefly-import-helper/internal/log"
 )
@@ -125,7 +126,7 @@ func (c *Client) get(ctx context.Context, url string) (*http.Response, error) {
 	}
 	req.Header.Add("x-api-key", c.apiKey)
 	req.Header.Add("Accept", "application/json")
-	req.Header.Add("User-Agent", "github.com/stnokott/firefly-import-helper") // TODO: add version from goreleaser
+	req.Header.Add("User-Agent", config.AppName)
 
 	logger.Debugf(">> %s %s", req.Method, req.URL.String())
 	resp, err := c.httpClient.Do(req)

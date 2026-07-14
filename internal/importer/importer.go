@@ -13,18 +13,20 @@ import (
 var logger = log.For("importer")
 
 type Importer struct {
-	cfg     *config.YAML
-	msg     Messenger
-	bank    domain.BankConnector
-	firefly domain.FireflyConnector
+	cfg          *config.YAML
+	msg          Messenger
+	bank         domain.BankConnector
+	fireflyRead  domain.FireflyReader
+	fireflyWrite domain.FireflyWriter
 }
 
-func New(cfg *config.YAML, msg Messenger, bank domain.BankConnector, firefly domain.FireflyConnector) (*Importer, error) {
+func New(cfg *config.YAML, msg Messenger, bank domain.BankConnector, ffRead domain.FireflyReader, ffWrite domain.FireflyWriter) (*Importer, error) {
 	im := &Importer{
-		cfg:     cfg,
-		msg:     msg,
-		bank:    bank,
-		firefly: firefly,
+		cfg:          cfg,
+		msg:          msg,
+		bank:         bank,
+		fireflyRead:  ffRead,
+		fireflyWrite: ffWrite,
 	}
 	if err := im.validateConfig(); err != nil {
 		return nil, fmt.Errorf("config validation error: %w", err)
@@ -50,14 +52,14 @@ func (im *Importer) validateConfig() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	ffAccounts, err := im.firefly.ListAssetAccounts(ctx)
+	ffAccounts, err := im.fireflyRead.ListAssetAccounts(ctx)
 	if err != nil {
 		return fmt.Errorf("could not list Firefly accounts: %w", err)
 	}
 	return im.cfg.ValidateFireflyIDs(ffAccounts)
 }
 
-func (im *Importer) Import(ctx context.Context) (err error) {
+func (im *Importer) Import(ctx context.Context, dryRun bool) (err error) {
 	logger.Info("starting import")
 	defer func() {
 		if err != nil {

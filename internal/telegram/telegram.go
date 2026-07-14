@@ -9,7 +9,6 @@ import (
 
 	telebot "github.com/go-telegram/bot"
 	telemodels "github.com/go-telegram/bot/models"
-	"github.com/stnokott/firefly-import-helper/internal/domain"
 	"github.com/stnokott/firefly-import-helper/internal/importer"
 	"github.com/stnokott/firefly-import-helper/internal/log"
 )
@@ -85,24 +84,6 @@ func (b *Bot) MsgImportFinished(ctx context.Context, sum []importer.Summary) err
 		ChatID:    b.chatID,
 		Text:      msg,
 		ParseMode: telemodels.ParseModeHTML,
-	})
-	if err != nil {
-		return fmt.Errorf("could not send message: %w", err)
-	}
-	return nil
-}
-
-func (b *Bot) sendTransactionMessage(ctx context.Context, t *domain.FireflyTransaction) error {
-	msg, err := b.renderTmplTransaction(t)
-	if err != nil {
-		return err
-	}
-	_, err = b.t.SendMessage(ctx, &telebot.SendMessageParams{
-		ChatID:         b.chatID,
-		ParseMode:      telemodels.ParseModeHTML,
-		ProtectContent: true,
-		Text:           msg,
-		// ReplyMarkup: buildInlineKeyboard([]string{"A", "B", "C"}, ""),
 	})
 	if err != nil {
 		return fmt.Errorf("could not send message: %w", err)

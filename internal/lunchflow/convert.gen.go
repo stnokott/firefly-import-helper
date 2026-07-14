@@ -39,6 +39,8 @@ func ConvertAccounts(source []Account) []domain.BankAccount {
 }
 func ConvertTransaction(source Transaction) domain.BankTransaction {
 	var domainBankTransaction domain.BankTransaction
+	domainBankTransaction.ID = source.ID
+	domainBankTransaction.IsPending = boolOrFalse(source.IsPending)
 	domainBankTransaction.Type = determineTransactionType(source)
 	domainBankTransaction.AccountID = source.AccountID
 	domainBankTransaction.Amount = source.Amount
