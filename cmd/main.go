@@ -120,8 +120,8 @@ func run(env *config.Env, dryRun bool) error {
 	})
 
 	defer func() {
-		// wait for potential shutdown actions in goroutines like sending goodbyte messages
-		time.Sleep(3 * time.Second)
+		// wait for potential shutdown actions in goroutines like sending goodbye messages
+		time.Sleep(1 * time.Second)
 	}()
 	return eg.Wait()
 }
