@@ -19,13 +19,17 @@ type Importer struct {
 	firefly domain.FireflyConnector
 }
 
-func New(cfg *config.YAML, msg Messenger, bank domain.BankConnector, firefly domain.FireflyConnector) *Importer {
-	return &Importer{
+func New(cfg *config.YAML, msg Messenger, bank domain.BankConnector, firefly domain.FireflyConnector) (*Importer, error) {
+	im := &Importer{
 		cfg:     cfg,
 		msg:     msg,
 		bank:    bank,
 		firefly: firefly,
 	}
+	if err := im.validateConfig(); err != nil {
+		return nil, fmt.Errorf("config validation error: %w", err)
+	}
+	return im, nil
 }
 
 // Messenger handles communication between user and this program.
@@ -40,6 +44,17 @@ type Summary struct {
 	Institution string
 	Success     bool
 	Info        string
+}
+
+func (im *Importer) validateConfig() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	ffAccounts, err := im.firefly.ListAssetAccounts(ctx)
+	if err != nil {
+		return fmt.Errorf("could not list Firefly accounts: %w", err)
+	}
+	return im.cfg.ValidateFireflyIDs(ffAccounts)
 }
 
 func (im *Importer) Import(ctx context.Context) (err error) {
@@ -69,9 +84,11 @@ func (im *Importer) Import(ctx context.Context) (err error) {
 		}
 		switch {
 		case im.cfg.AccountsByBankID[acc.ID].Ignore:
+			logger.Debug("account ignored - skipping")
 			summary.Success = true
 			summary.Info = "Ignored via config"
 		case acc.Status == domain.BankAccountStatusDisconnected:
+			logger.Debug("account disconnected - skipping")
 			summary.Success = false
 			summary.Info = "Reauthorization required"
 		case acc.Status == domain.BankAccountStatusError:

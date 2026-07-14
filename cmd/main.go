@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/stnokott/firefly-import-helper/internal/config"
-	"github.com/stnokott/firefly-import-helper/internal/domain"
 	"github.com/stnokott/firefly-import-helper/internal/firefly"
 	"github.com/stnokott/firefly-import-helper/internal/importer"
 	"github.com/stnokott/firefly-import-helper/internal/log"
@@ -94,11 +93,11 @@ func run(env *config.Env) error {
 	if err != nil {
 		return fmt.Errorf("could not create Firefly API client: %w", err)
 	}
-	if err := validateWithData(ctx, cfg, ff); err != nil {
-		return fmt.Errorf("config validation failed: %w", err)
-	}
 
-	im := importer.New(cfg, messenger, bank, ff)
+	im, err := importer.New(cfg, messenger, bank, ff)
+	if err != nil {
+		return err
+	}
 
 	eg, ctxEg := errgroup.WithContext(ctx)
 	eg.Go(func() error {
@@ -120,12 +119,4 @@ func run(env *config.Env) error {
 		time.Sleep(3 * time.Second)
 	}()
 	return eg.Wait()
-}
-
-func validateWithData(ctx context.Context, cfg *config.YAML, ff domain.FireflyConnector) error {
-	ffAccounts, err := ff.ListAccounts(ctx)
-	if err != nil {
-		return fmt.Errorf("could not list Firefly accounts: %w", err)
-	}
-	return cfg.ValidateFireflyIDs(ffAccounts)
 }

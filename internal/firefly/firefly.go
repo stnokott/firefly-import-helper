@@ -2,7 +2,9 @@ package firefly
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -17,11 +19,11 @@ import (
 var logger = log.For("firefly")
 
 type Client struct {
-	api generated.ClientWithResponsesInterface
+	api generated.ClientInterface
 }
 
 func New(baseURL url.URL, token string) (domain.FireflyConnector, error) {
-	api, err := generated.NewClientWithResponses(
+	api, err := generated.NewClient(
 		baseURL.JoinPath("/api").String(),
 		generated.WithRequestEditorFn(func(ctx context.Context, req *http.Request) error {
 			req.Header.Add("Authorization", "Bearer "+token)
@@ -39,41 +41,91 @@ func New(baseURL url.URL, token string) (domain.FireflyConnector, error) {
 	}, nil
 }
 
-func (c *Client) ListAccounts(ctx context.Context) ([]domain.FireflyAccount, error) {
-	resp, err := c.api.ListAccountWithResponse(ctx, nil)
+func (c *Client) ListAssetAccounts(ctx context.Context) ([]domain.FireflyAccount, error) {
+	requestFunc := func(page int32) (*http.Response, error) {
+		return c.api.ListAccount(ctx, &generated.ListAccountParams{
+			Page: new(page),
+			Type: new(generated.AccountTypeFilterAssetAccount),
+		})
+	}
+	accounts, err := paginatedRequest[generated.AccountRead](requestFunc)
 	if err != nil {
 		return nil, err
 	}
-	switch resp.StatusCode() {
-	case 200:
-		return ConvertAccounts(resp.ApplicationvndApiJSON200.Data), nil
-	case 400:
-		return nil, errBadRequest(resp.JSON400)
-	case 401:
-		return nil, errUnauthenticated(resp.JSON401)
-	case 404:
-		return nil, errNotFound(resp.JSON404)
-	case 500:
-		return nil, errInternal(resp.JSON500)
-	default:
-		return nil, fmt.Errorf("unhandled status code %d in ListAccounts", resp.StatusCode())
+	return ConvertAccounts(accounts), nil
+}
+
+func paginatedRequest[V any](get func(page int32) (*http.Response, error)) ([]V, error) {
+	var result []V
+	for page := int32(1); ; page++ {
+		resp, err := get(page)
+		if err != nil {
+			return nil, err
+		}
+
+		if resp.StatusCode != 200 {
+			return nil, unmarshalErr(resp)
+		}
+
+		parsed, err := unmarshalResp[V](resp)
+		if err != nil {
+			return nil, fmt.Errorf("page %d: %w", page, err)
+		}
+		if result == nil {
+			if parsed.Meta != nil && parsed.Meta.Pagination != nil && parsed.Meta.Pagination.Total != nil {
+				result = make([]V, 0, *parsed.Meta.Pagination.Total)
+			} else {
+				result = make([]V, 0)
+			}
+		}
+
+		result = append(result, parsed.Data...)
+
+		if parsed.Meta == nil ||
+			parsed.Meta.Pagination == nil ||
+			parsed.Meta.Pagination.CurrentPage == nil ||
+			parsed.Meta.Pagination.TotalPages == nil {
+			logger.Warn("no pagination metadata found")
+			return result, nil
+		}
+		if *parsed.Meta.Pagination.CurrentPage >= *parsed.Meta.Pagination.TotalPages {
+			return result, nil
+		}
 	}
 }
 
-func errBadRequest(resp *generated.BadRequestResponse) error {
-	return errGenericResponse("bad request", resp.Exception, resp.Message)
+type paginatedResponse[V any] struct {
+	Data []V             `json:"data"`
+	Meta *generated.Meta `json:"meta"`
 }
 
-func errUnauthenticated(resp *generated.UnauthenticatedResponse) error {
-	return errGenericResponse("unauthenticated", resp.Exception, resp.Message)
+func unmarshalResp[V any](resp *http.Response) (*paginatedResponse[V], error) {
+	defer resp.Body.Close()
+	result := new(paginatedResponse[V])
+	if err := json.NewDecoder(resp.Body).Decode(result); err != nil {
+		return nil, fmt.Errorf("could not unmarshal response body for status %d: %w", resp.StatusCode, err)
+	}
+	return result, nil
 }
 
-func errNotFound(resp *generated.NotFoundResponse) error {
-	return errGenericResponse("not found", resp.Exception, resp.Message)
-}
+func unmarshalErr(resp *http.Response) error {
+	type ErrResult struct {
+		Message   *string `json:"message"`
+		Exception *string `json:"exception"`
+	}
 
-func errInternal(resp *generated.InternalExceptionResponse) error {
-	return errGenericResponse("internal error", resp.Exception, resp.Message)
+	defer resp.Body.Close()
+	respBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("could not read response body for status %d: %w", resp.StatusCode, err)
+	}
+
+	e := new(ErrResult)
+	if err := json.Unmarshal(respBytes, e); err != nil {
+		return fmt.Errorf("could not unmarshal response JSON for status %d: %w - '%s'", resp.StatusCode, err, string(respBytes))
+	}
+
+	return errGenericResponse(resp.Status, e.Exception, e.Message)
 }
 
 func errGenericResponse(exceptionType string, exception, message *string) error {

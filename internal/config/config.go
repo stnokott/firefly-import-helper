@@ -6,9 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"iter"
 	"net/url"
 	"os"
-	"slices"
 
 	"github.com/goccy/go-yaml"
 	"github.com/kelseyhightower/envconfig"
@@ -40,12 +40,17 @@ type Account struct {
 
 type Accounts []*Account
 
-func (a Accounts) Active() Accounts {
-	dst := make(Accounts, len(a))
-	copy(dst, a)
-	return slices.DeleteFunc(dst, func(acc *Account) bool {
-		return acc.Ignore
-	})
+func (a Accounts) Active() iter.Seq[*Account] {
+	return func(yield func(*Account) bool) {
+		for _, acc := range a {
+			if acc.Ignore {
+				continue
+			}
+			if !yield(acc) {
+				return
+			}
+		}
+	}
 }
 
 type URL struct {
@@ -65,7 +70,7 @@ func (u *URL) Decode(v string) error {
 
 func (cfg *YAML) validate() error {
 	seenIDs := map[int]struct{}{}
-	for _, acc := range cfg.Accounts.Active() {
+	for acc := range cfg.Accounts.Active() {
 		if acc.BankID == 0 {
 			return fmt.Errorf(`account "%s": "bank_id" is required - re-initialize config if you accidentally deleted it`, acc.Name)
 		}
@@ -88,7 +93,7 @@ func (cfg *YAML) ValidateFireflyIDs(ffAccounts []domain.FireflyAccount) error {
 		accountIDs[acc.ID] = struct{}{}
 	}
 
-	for _, acc := range cfg.Accounts.Active() {
+	for acc := range cfg.Accounts.Active() {
 		if _, exists := accountIDs[acc.FireflyID]; !exists {
 			return fmt.Errorf(`account "%s": "firefly_id" "%s" not found in Firefly`, acc.Name, acc.FireflyID)
 		}
@@ -179,7 +184,7 @@ func createBootstrappedConfig(accs []domain.BankAccount) *YAML {
 	for i, acc := range accs {
 		transformed[i] = &Account{
 			BankID: acc.ID,
-			Name:   fmt.Sprintf("%s(%s)", acc.Name, acc.Institution),
+			Name:   fmt.Sprintf("%s (%s)", acc.Name, acc.Institution),
 		}
 	}
 	return &YAML{

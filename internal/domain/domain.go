@@ -51,7 +51,7 @@ const (
 )
 
 type FireflyConnector interface {
-	ListAccounts(ctx context.Context) ([]FireflyAccount, error)
+	ListAssetAccounts(ctx context.Context) ([]FireflyAccount, error)
 }
 
 type FireflyAccount struct {
