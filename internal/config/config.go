@@ -28,7 +28,7 @@ type Env struct {
 type YAML struct {
 	Accounts Accounts `yaml:"accounts"`
 
-	AccountsByBankID map[int]*Account `yaml:"-"` // internally derived from Accounts
+	AccountsByBankID map[int]Account `yaml:"-"` // internally derived from Accounts
 }
 
 type Account struct {
@@ -38,15 +38,12 @@ type Account struct {
 	Ignore    bool   `yaml:"ignore"`
 }
 
-type Accounts []*Account
+type Accounts []Account
 
-func (a Accounts) Active() iter.Seq[*Account] {
-	return func(yield func(*Account) bool) {
+func (a Accounts) Active() iter.Seq[Account] {
+	return func(yield func(Account) bool) {
 		for _, acc := range a {
-			if acc.Ignore {
-				continue
-			}
-			if !yield(acc) {
+			if !acc.Ignore && !yield(acc) {
 				return
 			}
 		}
@@ -79,7 +76,7 @@ func (cfg *YAML) validate() error {
 		}
 
 		if _, seen := seenIDs[acc.BankID]; seen {
-			return fmt.Errorf(`account "%s": found duplicate "bank_id" %d - please re-initialize the config`, acc.Name, acc.BankID)
+			return fmt.Errorf(`account "%s": duplicate "bank_id" %d - please re-initialize the config`, acc.Name, acc.BankID)
 		}
 		seenIDs[acc.BankID] = struct{}{}
 	}
@@ -87,15 +84,15 @@ func (cfg *YAML) validate() error {
 }
 
 // ValidateFireflyIDs ensures all Firefly account IDs in the config match actual IDs in the Firefly instance.
-func (cfg *YAML) ValidateFireflyIDs(ffAccounts []domain.FireflyAccount) error {
+func (cfg *YAML) ValidateFireflyIDs(ffAccounts domain.FireflyAccounts) error {
 	accountIDs := map[string]struct{}{}
-	for _, acc := range ffAccounts {
+	for acc := range ffAccounts.Active() {
 		accountIDs[acc.ID] = struct{}{}
 	}
 
 	for acc := range cfg.Accounts.Active() {
 		if _, exists := accountIDs[acc.FireflyID]; !exists {
-			return fmt.Errorf(`account "%s": "firefly_id" "%s" not found in Firefly`, acc.Name, acc.FireflyID)
+			return fmt.Errorf(`account "%s": no active account with id "%s" found in Firefly`, acc.Name, acc.FireflyID)
 		}
 	}
 	return nil
@@ -116,7 +113,7 @@ func ReadYAML(yamlFile string) (*YAML, error) {
 		return nil, fmt.Errorf("config validation error: %w", err)
 	}
 
-	cfg.AccountsByBankID = make(map[int]*Account, len(cfg.Accounts))
+	cfg.AccountsByBankID = make(map[int]Account, len(cfg.Accounts))
 	for _, acc := range cfg.Accounts {
 		cfg.AccountsByBankID[acc.BankID] = acc
 	}
@@ -180,9 +177,9 @@ func WriteBootstrappedConfig(file string, accounts []domain.BankAccount) error {
 }
 
 func createBootstrappedConfig(accs []domain.BankAccount) *YAML {
-	transformed := make([]*Account, len(accs))
+	transformed := make([]Account, len(accs))
 	for i, acc := range accs {
-		transformed[i] = &Account{
+		transformed[i] = Account{
 			BankID: acc.ID,
 			Name:   fmt.Sprintf("%s (%s)", acc.Name, acc.Institution),
 		}

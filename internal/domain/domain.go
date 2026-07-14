@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	"iter"
 	"time"
 
 	"github.com/stnokott/firefly-import-helper/internal/log"
@@ -51,13 +52,25 @@ const (
 )
 
 type FireflyConnector interface {
-	ListAssetAccounts(ctx context.Context) ([]FireflyAccount, error)
+	ListAssetAccounts(ctx context.Context) (FireflyAccounts, error)
 }
 
 type FireflyAccount struct {
 	ID     string
 	Name   string
 	Active bool
+}
+
+type FireflyAccounts []FireflyAccount
+
+func (a FireflyAccounts) Active() iter.Seq[FireflyAccount] {
+	return func(yield func(FireflyAccount) bool) {
+		for _, acc := range a {
+			if acc.Active && !yield(acc) {
+				return
+			}
+		}
+	}
 }
 
 type FireflyTransaction struct {

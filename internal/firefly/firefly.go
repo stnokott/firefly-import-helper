@@ -41,7 +41,7 @@ func New(baseURL url.URL, token string) (domain.FireflyConnector, error) {
 	}, nil
 }
 
-func (c *Client) ListAssetAccounts(ctx context.Context) ([]domain.FireflyAccount, error) {
+func (c *Client) ListAssetAccounts(ctx context.Context) (domain.FireflyAccounts, error) {
 	requestFunc := func(page int32) (*http.Response, error) {
 		return c.api.ListAccount(ctx, &generated.ListAccountParams{
 			Page: new(page),
