@@ -200,7 +200,7 @@ func yamlCommentMap(cfg *YAML) yaml.CommentMap {
 				"",
 				` Set "ignore" to true to exclude a bank account from processing.`,
 				"",
-				` The "name" field only exists for identification, feel free to modify it.`,
+				` The "name" field is not used, feel free to modify it.`,
 			),
 		},
 	}
