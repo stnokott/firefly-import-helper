@@ -25,6 +25,7 @@ type Converter interface {
 	ConvertAccountStatus(AccountStatus) domain.BankAccountStatus
 
 	ConvertTransactions([]Transaction) []domain.BankTransaction
+	//goverter:map Amount Amount | math:Abs
 	//goverter:map . Type  | determineTransactionType
 	//goverter:map Description | descriptionOrEmpty
 	//goverter:map IsPending | boolOrFalse

@@ -64,7 +64,7 @@ func (c *client) ListAssetAccounts(ctx context.Context) (domain.FireflyAccounts,
 
 func (c *client) CreateTransaction(ctx context.Context, accountID string, t domain.BankTransaction) (string, error) {
 	converted := ConvertTransaction(t, accountID)
-	resp, err := c.api.StoreTransactionWithFormdataBodyWithResponse(ctx, nil, generated.TransactionStore{
+	resp, err := c.api.StoreTransactionWithResponse(ctx, nil, generated.StoreTransactionJSONRequestBody{
 		ApplyRules:           new(true),
 		ErrorIfDuplicateHash: new(true),
 		GroupTitle:           nullable.NewNullNullable[string](),

@@ -69,39 +69,6 @@ func (u *URL) Decode(v string) error {
 	return nil
 }
 
-func (cfg *YAML) validate() error {
-	seenIDs := map[int]struct{}{}
-	for acc := range cfg.Accounts.Active() {
-		if acc.BankID == 0 {
-			return fmt.Errorf(`account "%s": "bank_id" is required - re-initialize config if you accidentally deleted it`, acc.Name)
-		}
-		if acc.FireflyID == "" {
-			return fmt.Errorf(`account "%s": set "firefly_id" or "ignore: true"`, acc.Name)
-		}
-
-		if _, seen := seenIDs[acc.BankID]; seen {
-			return fmt.Errorf(`account "%s": duplicate "bank_id" %d - please re-initialize the config`, acc.Name, acc.BankID)
-		}
-		seenIDs[acc.BankID] = struct{}{}
-	}
-	return nil
-}
-
-// ValidateFireflyIDs ensures all Firefly account IDs in the config match actual IDs in the Firefly instance.
-func (cfg *YAML) ValidateFireflyIDs(ffAccounts domain.FireflyAccounts) error {
-	accountIDs := map[string]struct{}{}
-	for acc := range ffAccounts.Active() {
-		accountIDs[acc.ID] = struct{}{}
-	}
-
-	for acc := range cfg.Accounts.Active() {
-		if _, exists := accountIDs[acc.FireflyID]; !exists {
-			return fmt.Errorf(`account "%s": no active account with id "%s" found in Firefly`, acc.Name, acc.FireflyID)
-		}
-	}
-	return nil
-}
-
 // ReadYAML reads yamlFile into a [YAML] instance.
 func ReadYAML(yamlFile string) (*YAML, error) {
 	cfg := new(YAML)
@@ -216,4 +183,37 @@ func yamlCommentMap(cfg *YAML) yaml.CommentMap {
 		}
 	}
 	return cm
+}
+
+func (cfg *YAML) validate() error {
+	seenIDs := map[int]struct{}{}
+	for acc := range cfg.Accounts.Active() {
+		if acc.BankID == 0 {
+			return fmt.Errorf(`account "%s": "bank_id" is required - re-initialize config if you accidentally deleted it`, acc.Name)
+		}
+		if acc.FireflyID == "" {
+			return fmt.Errorf(`account "%s": set "firefly_id" or "ignore: true"`, acc.Name)
+		}
+
+		if _, seen := seenIDs[acc.BankID]; seen {
+			return fmt.Errorf(`account "%s": duplicate "bank_id" %d - please re-initialize the config`, acc.Name, acc.BankID)
+		}
+		seenIDs[acc.BankID] = struct{}{}
+	}
+	return nil
+}
+
+// ValidateFireflyIDs ensures all Firefly account IDs in the config match actual IDs in the Firefly instance.
+func (cfg *YAML) ValidateFireflyIDs(ffAccounts domain.FireflyAccounts) error {
+	accountIDs := map[string]struct{}{}
+	for acc := range ffAccounts.Active() {
+		accountIDs[acc.ID] = struct{}{}
+	}
+
+	for acc := range cfg.Accounts.Active() {
+		if _, exists := accountIDs[acc.FireflyID]; !exists {
+			return fmt.Errorf(`account "%s": no active account with id "%s" found in Firefly`, acc.Name, acc.FireflyID)
+		}
+	}
+	return nil
 }

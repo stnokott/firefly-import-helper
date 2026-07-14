@@ -31,17 +31,17 @@ type Converter interface {
 	ConvertAccount(generated.AccountRead) domain.FireflyAccount
 
 	//goverter:context ffAccountID
+	//goverter:default defaultTransactionSplitStore
 	//goverter:ignore BillId BillName BudgetId BudgetName CategoryId CategoryName CurrencyId
 	//goverter:ignore DueDate ExternalUrl ForeignAmount ForeignCurrencyCode ForeignCurrencyId InterestDate
-	//goverter:ignore InternalReference InvoiceDate Order PaymentDate PiggyBankId PiggyBankName Reconciled
+	//goverter:ignore InternalReference InvoiceDate Notes Order PaymentDate PiggyBankId PiggyBankName Reconciled
 	//goverter:ignore SepaBatchId SepaCc SepaCi SepaCountry SepaCtId SepaCtOp SepaDb SepaEp
 	//goverter:ignore Tags
 	//goverter:map Date BookDate
-	//goverter:map Currency CurrencyCode | mapCurrency
+	//goverter:map Currency CurrencyCode
 	//goverter:map . DestinationId | getDestinationID
 	//goverter:map . DestinationName | getDestinationName
 	//goverter:map ID ExternalId
-	//goverter:map Description Notes | makeNotes
 	//goverter:map ProcessDate | now
 	//goverter:map . SourceId | getSourceID
 	//goverter:map . SourceName | getSourceName
@@ -71,18 +71,12 @@ func nullableString(s string) nullable.Nullable[string] {
 	return nullable.NewNullableWithValue(s)
 }
 
-// TODO: query Firefly /currencies endpoint to create this map dynamically
-var currencies = map[string]string{
-	"€": "EUR",
-	"$": "USD",
-}
-
-func mapCurrency(cc string) nullable.Nullable[string] {
-	if out, exists := currencies[cc]; exists {
-		return nullable.NewNullableWithValue(out)
+func defaultTransactionSplitStore() generated.TransactionSplitStore {
+	notes := fmt.Sprintf("imported at %s using %s", time.Now().Format(time.DateTime), config.AppName)
+	return generated.TransactionSplitStore{
+		Notes:      nullable.NewNullableWithValue(notes),
+		Reconciled: new(true),
 	}
-	logger.Warnf("could not determine currency symbol for '%s' - using default Firefly account currency", cc)
-	return nullable.NewNullNullable[string]()
 }
 
 //goverter:context ffAccountID
@@ -126,11 +120,6 @@ func getDestinationName(t domain.BankTransaction) nullable.Nullable[string] {
 		return nullable.NewNullableWithValue(unknownDestinationAccountName)
 	}
 	return nullable.NewNullableWithValue(*t.Merchant)
-}
-
-func makeNotes(desc string) nullable.Nullable[string] {
-	s := fmt.Sprintf("%s\n\nprocessed at %s using %s", desc, time.Now().Format(time.DateTime), config.AppName)
-	return nullable.NewNullableWithValue(s)
 }
 
 func mapTransactionType(in domain.BankTransactionType) generated.TransactionTypeProperty {

@@ -25,16 +25,15 @@ func ConvertAccounts(source []generated.AccountRead) []domain.FireflyAccount {
 	return domainFireflyAccountList
 }
 func ConvertTransaction(source domain.BankTransaction, context string) generated.TransactionSplitStore {
-	var generatedTransactionSplitStore generated.TransactionSplitStore
+	generatedTransactionSplitStore := defaultTransactionSplitStore()
 	generatedTransactionSplitStore.Amount = generated.Amount(source.Amount)
 	generatedTransactionSplitStore.BookDate = nullableTime(source.Date)
-	generatedTransactionSplitStore.CurrencyCode = mapCurrency(source.Currency)
+	generatedTransactionSplitStore.CurrencyCode = nullableString(source.Currency)
 	generatedTransactionSplitStore.Date = copyTime(source.Date)
 	generatedTransactionSplitStore.Description = source.Description
 	generatedTransactionSplitStore.DestinationId = getDestinationID(source, context)
 	generatedTransactionSplitStore.DestinationName = getDestinationName(source)
 	generatedTransactionSplitStore.ExternalId = nullableString(source.ID)
-	generatedTransactionSplitStore.Notes = makeNotes(source.Description)
 	generatedTransactionSplitStore.ProcessDate = now()
 	generatedTransactionSplitStore.SourceId = getSourceID(source, context)
 	generatedTransactionSplitStore.SourceName = getSourceName(source)

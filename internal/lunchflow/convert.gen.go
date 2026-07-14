@@ -2,7 +2,10 @@
 
 package lunchflow
 
-import domain "github.com/stnokott/firefly-import-helper/internal/domain"
+import (
+	domain "github.com/stnokott/firefly-import-helper/internal/domain"
+	"math"
+)
 
 func ConvertAccount(source Account) domain.BankAccount {
 	var domainBankAccount domain.BankAccount
@@ -43,7 +46,7 @@ func ConvertTransaction(source Transaction) domain.BankTransaction {
 	domainBankTransaction.IsPending = boolOrFalse(source.IsPending)
 	domainBankTransaction.Type = determineTransactionType(source)
 	domainBankTransaction.AccountID = source.AccountID
-	domainBankTransaction.Amount = source.Amount
+	domainBankTransaction.Amount = math.Abs(source.Amount)
 	domainBankTransaction.Currency = source.Currency
 	domainBankTransaction.Date = copyDateTime(source.Date)
 	domainBankTransaction.Description = descriptionOrEmpty(source.Description)

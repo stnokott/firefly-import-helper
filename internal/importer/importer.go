@@ -86,23 +86,25 @@ func (im *Importer) Import(ctx context.Context, dryRun bool) (err error) {
 		}
 		switch {
 		case im.cfg.AccountsByBankID[acc.ID].Ignore:
-			logger.Debug("account ignored - skipping")
+			logger.Info("  account ignored - skipping")
 			summary.Success = true
 			summary.Info = "Ignored via config"
 		case acc.Status == domain.BankAccountStatusDisconnected:
-			logger.Debug("account disconnected - skipping")
+			logger.Info("  account disconnected - skipping")
 			summary.Success = false
 			summary.Info = "Reauthorization required"
 		case acc.Status == domain.BankAccountStatusError:
+			logger.Info("  account erroneous - skipping")
 			summary.Success = false
 			summary.Info = "Issue with data provider"
 		case acc.Status == domain.BankAccountStatusActive:
-			imported, err := im.doImport(ctx, acc)
+			imported, err := im.importAccount(ctx, acc)
 			if err != nil {
 				logger.ErrorV(err)
 				summary.Success = false
 				summary.Info = err.Error()
 			} else {
+				logger.Infof("%d transactions imported", imported)
 				summary.Success = true
 				summary.Info = fmt.Sprintf("%d transactions imported", imported)
 			}
@@ -114,17 +116,34 @@ func (im *Importer) Import(ctx context.Context, dryRun bool) (err error) {
 	return im.msg.MsgImportFinished(ctx, sum)
 }
 
-// doImport imports transactions for the given account and returns the number of imported transactions.
-func (im *Importer) doImport(ctx context.Context, acc domain.BankAccount) (int, error) {
+// importAccount imports transactions for the given account and returns the number of imported transactions.
+func (im *Importer) importAccount(ctx context.Context, acc domain.BankAccount) (int, error) {
 	from := im.bank.MinTransactionTime()
 	to := from.Add(7 * 24 * time.Hour)
 	transactions, err := im.bank.GetTransactions(ctx, acc.ID, from, to)
 	if err != nil {
 		return 0, fmt.Errorf("could not get transactions: %w", err)
 	}
-	logger.Debugf("found %d transactions for account %s between %s and %s", len(transactions), acc.Name, from.Format(time.DateOnly), to.Format(time.DateOnly))
+
+	fireflyAccountID := im.cfg.AccountsByBankID[acc.ID].FireflyID // always resolves due to previous validation
 	for _, t := range transactions {
-		logger.Debugf("--> %#v", t)
+		if t.IsPending {
+			logger.Debugf("skipping pending transaction %s", t.ID)
+			continue
+		}
+
+		if err := im.importTransaction(ctx, t, fireflyAccountID); err != nil {
+			return 0, fmt.Errorf("failed to import transaction %s: %w", t.ID, err)
+		}
 	}
 	return len(transactions), nil
+}
+
+func (im *Importer) importTransaction(ctx context.Context, t domain.BankTransaction, fireflyAccountID string) error {
+	id, err := im.fireflyWrite.CreateTransaction(ctx, fireflyAccountID, t)
+	if err != nil {
+		return fmt.Errorf("failed to create Firefly transaction: %w", err)
+	}
+	logger.Debugf("created Firefly transaction %s", id)
+	return nil
 }
