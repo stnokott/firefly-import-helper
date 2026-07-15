@@ -63,7 +63,35 @@ func (c *client) ListAssetAccounts(ctx context.Context) (domain.FireflyAccounts,
 	return ConvertAccounts(accounts), nil
 }
 
+func (c *client) searchTransactionByExternalID(ctx context.Context, extID string) (*generated.TransactionRead, error) {
+	requestFunc := func(page int32) (int, []byte, error) {
+		resp, err := c.api.SearchTransactionsWithResponse(ctx, &generated.SearchTransactionsParams{
+			Limit: new(int32(1)),
+			Query: "external_id_is:" + extID,
+		})
+		return resp.StatusCode(), resp.Body, err
+	}
+	transactions, err := paginatedRequest[generated.TransactionRead](requestFunc)
+	if err != nil {
+		return nil, err
+	}
+	if len(transactions) == 0 {
+		return nil, nil
+	}
+	return &transactions[0], nil
+}
+
 func (c *client) CreateTransaction(ctx context.Context, accountID string, t domain.BankTransaction) (string, error) {
+	// validate we dont have the same external ID in Firefly already
+	if existingTransaction, err := c.searchTransactionByExternalID(ctx, t.ID); err != nil {
+		return "", fmt.Errorf("failed to search for transaction by external ID %s: %w", t.ID, err)
+	} else if existingTransaction != nil {
+		return "", ErrDuplicateTransaction{
+			DuplicateOf:  existingTransaction.Id,
+			byExternalID: true,
+		}
+	}
+
 	converted := ConvertTransaction(t, accountID)
 	resp, err := c.api.StoreTransactionWithResponse(ctx, nil, generated.StoreTransactionJSONRequestBody{
 		ApplyRules:           new(true),
@@ -170,9 +198,13 @@ func errFromResponse(status int, body []byte) error {
 }
 
 type ErrDuplicateTransaction struct {
-	DuplicateOf string
+	DuplicateOf  string
+	byExternalID bool
 }
 
 func (e ErrDuplicateTransaction) Error() string {
+	if e.byExternalID {
+		return "duplicate of transaction #" + e.DuplicateOf + " (by external ID)"
+	}
 	return "duplicate of transaction #" + e.DuplicateOf
 }

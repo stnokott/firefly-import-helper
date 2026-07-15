@@ -34,6 +34,15 @@ const (
 	AccountRolePropertySharedAsset     AccountRoleProperty = "sharedAsset"
 )
 
+// Defines values for AccountSearchFieldFilter.
+const (
+	AccountSearchFieldFilterAll    AccountSearchFieldFilter = "all"
+	AccountSearchFieldFilterIban   AccountSearchFieldFilter = "iban"
+	AccountSearchFieldFilterId     AccountSearchFieldFilter = "id"
+	AccountSearchFieldFilterName   AccountSearchFieldFilter = "name"
+	AccountSearchFieldFilterNumber AccountSearchFieldFilter = "number"
+)
+
 // Defines values for AccountTypeFilter.
 const (
 	AccountTypeFilterAll                   AccountTypeFilter = "all"
@@ -110,10 +119,10 @@ const (
 
 // Defines values for LiabilityTypeProperty.
 const (
-	Debt        LiabilityTypeProperty = "debt"
-	LessThannil LiabilityTypeProperty = "<nil>"
-	Loan        LiabilityTypeProperty = "loan"
-	Mortgage    LiabilityTypeProperty = "mortgage"
+	LiabilityTypePropertyDebt        LiabilityTypeProperty = "debt"
+	LiabilityTypePropertyLessThannil LiabilityTypeProperty = "<nil>"
+	LiabilityTypePropertyLoan        LiabilityTypeProperty = "loan"
+	LiabilityTypePropertyMortgage    LiabilityTypeProperty = "mortgage"
 )
 
 // Defines values for ShortAccountTypeProperty.
@@ -299,6 +308,9 @@ type AccountRead struct {
 
 // AccountRoleProperty Is only mandatory when the type is asset.
 type AccountRoleProperty string
+
+// AccountSearchFieldFilter defines model for AccountSearchFieldFilter.
+type AccountSearchFieldFilter string
 
 // AccountSingle defines model for AccountSingle.
 type AccountSingle struct {
@@ -1355,6 +1367,42 @@ type ListTransactionByAccountParams struct {
 	XTraceId *openapi_types.UUID `json:"X-Trace-Id,omitempty"`
 }
 
+// SearchAccountsParams defines parameters for SearchAccounts.
+type SearchAccountsParams struct {
+	// Limit Number of items per page. The default pagination is per 50 items.
+	Limit *int32 `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Page Page number. The default pagination is per 50 items.
+	Page *int32 `form:"page,omitempty" json:"page,omitempty"`
+
+	// Query The query you wish to search for.
+	Query string `form:"query" json:"query"`
+
+	// Type The type of accounts you wish to limit the search to.
+	Type *AccountTypeFilter `form:"type,omitempty" json:"type,omitempty"`
+
+	// Field The account field(s) you want to search in.
+	Field AccountSearchFieldFilter `form:"field" json:"field"`
+
+	// XTraceId Unique identifier associated with this request.
+	XTraceId *openapi_types.UUID `json:"X-Trace-Id,omitempty"`
+}
+
+// SearchTransactionsParams defines parameters for SearchTransactions.
+type SearchTransactionsParams struct {
+	// Limit Number of items per page. The default pagination is per 50 items.
+	Limit *int32 `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Page Page number. The default pagination is per 50 items.
+	Page *int32 `form:"page,omitempty" json:"page,omitempty"`
+
+	// Query The query you wish to search for.
+	Query string `form:"query" json:"query"`
+
+	// XTraceId Unique identifier associated with this request.
+	XTraceId *openapi_types.UUID `json:"X-Trace-Id,omitempty"`
+}
+
 // DeleteTransactionJournalParams defines parameters for DeleteTransactionJournal.
 type DeleteTransactionJournalParams struct {
 	// XTraceId Unique identifier associated with this request.
@@ -1577,6 +1625,12 @@ type ClientInterface interface {
 	// ListTransactionByAccount request
 	ListTransactionByAccount(ctx context.Context, id string, params *ListTransactionByAccountParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// SearchAccounts request
+	SearchAccounts(ctx context.Context, params *SearchAccountsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SearchTransactions request
+	SearchTransactions(ctx context.Context, params *SearchTransactionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// DeleteTransactionJournal request
 	DeleteTransactionJournal(ctx context.Context, id string, params *DeleteTransactionJournalParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1750,6 +1804,30 @@ func (c *Client) ListPiggyBankByAccount(ctx context.Context, id string, params *
 
 func (c *Client) ListTransactionByAccount(ctx context.Context, id string, params *ListTransactionByAccountParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListTransactionByAccountRequest(c.Server, id, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SearchAccounts(ctx context.Context, params *SearchAccountsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSearchAccountsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SearchTransactions(ctx context.Context, params *SearchTransactionsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSearchTransactionsRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -2672,6 +2750,218 @@ func NewListTransactionByAccountRequest(server string, id string, params *ListTr
 	return req, nil
 }
 
+// NewSearchAccountsRequest generates requests for SearchAccounts
+func NewSearchAccountsRequest(server string, params *SearchAccountsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/search/accounts")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Page != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "page", runtime.ParamLocationQuery, *params.Page); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "query", runtime.ParamLocationQuery, params.Query); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if params.Type != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "type", runtime.ParamLocationQuery, *params.Type); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "field", runtime.ParamLocationQuery, params.Field); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.XTraceId != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Trace-Id", runtime.ParamLocationHeader, *params.XTraceId)
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-Trace-Id", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewSearchTransactionsRequest generates requests for SearchTransactions
+func NewSearchTransactionsRequest(server string, params *SearchTransactionsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/search/transactions")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Page != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "page", runtime.ParamLocationQuery, *params.Page); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "query", runtime.ParamLocationQuery, params.Query); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.XTraceId != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Trace-Id", runtime.ParamLocationHeader, *params.XTraceId)
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-Trace-Id", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
 // NewDeleteTransactionJournalRequest generates requests for DeleteTransactionJournal
 func NewDeleteTransactionJournalRequest(server string, id string, params *DeleteTransactionJournalParams) (*http.Request, error) {
 	var err error
@@ -3471,6 +3761,12 @@ type ClientWithResponsesInterface interface {
 	// ListTransactionByAccountWithResponse request
 	ListTransactionByAccountWithResponse(ctx context.Context, id string, params *ListTransactionByAccountParams, reqEditors ...RequestEditorFn) (*ListTransactionByAccountResponse, error)
 
+	// SearchAccountsWithResponse request
+	SearchAccountsWithResponse(ctx context.Context, params *SearchAccountsParams, reqEditors ...RequestEditorFn) (*SearchAccountsResponse, error)
+
+	// SearchTransactionsWithResponse request
+	SearchTransactionsWithResponse(ctx context.Context, params *SearchTransactionsParams, reqEditors ...RequestEditorFn) (*SearchTransactionsResponse, error)
+
 	// DeleteTransactionJournalWithResponse request
 	DeleteTransactionJournalWithResponse(ctx context.Context, id string, params *DeleteTransactionJournalParams, reqEditors ...RequestEditorFn) (*DeleteTransactionJournalResponse, error)
 
@@ -3713,6 +4009,58 @@ func (r ListTransactionByAccountResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ListTransactionByAccountResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type SearchAccountsResponse struct {
+	Body                     []byte
+	HTTPResponse             *http.Response
+	ApplicationvndApiJSON200 *AccountArray
+	JSON400                  *BadRequestResponse
+	JSON401                  *UnauthenticatedResponse
+	JSON404                  *NotFoundResponse
+	JSON500                  *InternalExceptionResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r SearchAccountsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SearchAccountsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type SearchTransactionsResponse struct {
+	Body                     []byte
+	HTTPResponse             *http.Response
+	ApplicationvndApiJSON200 *TransactionArray
+	JSON400                  *BadRequestResponse
+	JSON401                  *UnauthenticatedResponse
+	JSON404                  *NotFoundResponse
+	JSON500                  *InternalExceptionResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r SearchTransactionsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SearchTransactionsResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -4081,6 +4429,24 @@ func (c *ClientWithResponses) ListTransactionByAccountWithResponse(ctx context.C
 		return nil, err
 	}
 	return ParseListTransactionByAccountResponse(rsp)
+}
+
+// SearchAccountsWithResponse request returning *SearchAccountsResponse
+func (c *ClientWithResponses) SearchAccountsWithResponse(ctx context.Context, params *SearchAccountsParams, reqEditors ...RequestEditorFn) (*SearchAccountsResponse, error) {
+	rsp, err := c.SearchAccounts(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSearchAccountsResponse(rsp)
+}
+
+// SearchTransactionsWithResponse request returning *SearchTransactionsResponse
+func (c *ClientWithResponses) SearchTransactionsWithResponse(ctx context.Context, params *SearchTransactionsParams, reqEditors ...RequestEditorFn) (*SearchTransactionsResponse, error) {
+	rsp, err := c.SearchTransactions(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSearchTransactionsResponse(rsp)
 }
 
 // DeleteTransactionJournalWithResponse request returning *DeleteTransactionJournalResponse
@@ -4599,6 +4965,114 @@ func ParseListTransactionByAccountResponse(rsp *http.Response) (*ListTransaction
 	}
 
 	response := &ListTransactionByAccountResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest TransactionArray
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationvndApiJSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequestResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest UnauthenticatedResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFoundResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalExceptionResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSearchAccountsResponse parses an HTTP response from a SearchAccountsWithResponse call
+func ParseSearchAccountsResponse(rsp *http.Response) (*SearchAccountsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SearchAccountsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AccountArray
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationvndApiJSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequestResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest UnauthenticatedResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFoundResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalExceptionResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSearchTransactionsResponse parses an HTTP response from a SearchTransactionsWithResponse call
+func ParseSearchTransactionsResponse(rsp *http.Response) (*SearchTransactionsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SearchTransactionsResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
