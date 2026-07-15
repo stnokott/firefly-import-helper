@@ -94,7 +94,7 @@ func (c *Client) getAccountBalance(ctx context.Context, id int) (*Balance, error
 }
 
 func (c *Client) GetTransactions(ctx context.Context, id int, from time.Time, to time.Time) ([]domain.BankTransaction, error) {
-	minFromTime := c.MinTransactionTime()
+	minFromTime := c.MinImportTransactionTime()
 	if from.Before(minFromTime) {
 		return nil, fmt.Errorf("can not query transactions earlier than %v", minFromTime.Format(time.DateTime))
 	}
@@ -118,7 +118,7 @@ func (c *Client) GetTransactions(ctx context.Context, id int, from time.Time, to
 	return ConvertTransactions(respTransactions.Transactions), nil
 }
 
-func (*Client) MinTransactionTime() time.Time {
+func (*Client) MinImportTransactionTime() time.Time {
 	return time.Now().Truncate(24 * time.Hour).Add(24 * time.Hour).Add(-maxTransactionTimePast)
 }
 

@@ -28,7 +28,7 @@ const (
 func main() {
 	doInit := flag.Bool("init", false, "when set, will bootstrap a config file and then exit")
 	doDryRun := flag.Bool("dry-run", false, "when set, will not modify any Firefly data")
-	noComms := flag.Bool("no-comms", false, "when set, will disable any outward messenger communication")
+	noNotify := flag.Bool("no-notify", false, "when set, will disable any outward messenger communication")
 	flag.Parse()
 
 	env, err := config.ReadEnv()
@@ -47,7 +47,7 @@ func main() {
 	if *doInit {
 		err = bootstrapConfig(env)
 	} else {
-		err = run(env, *doDryRun, *noComms)
+		err = run(env, *doDryRun, *noNotify)
 	}
 
 	if err != nil {
@@ -73,7 +73,7 @@ func bootstrapConfig(env *config.Env) error {
 	return nil
 }
 
-func run(env *config.Env, dryRun bool, disableComms bool) error {
+func run(env *config.Env, dryRun bool, disableNotifications bool) error {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
 	defer cancel()
 
@@ -83,7 +83,7 @@ func run(env *config.Env, dryRun bool, disableComms bool) error {
 	}
 
 	messenger := telegram.NewNoop()
-	if !disableComms {
+	if !disableNotifications {
 		if messenger, err = telegram.NewBot(
 			env.TelegramBotToken, env.FireflyBaseURL.URL, env.TelegramChatID,
 		); err != nil {

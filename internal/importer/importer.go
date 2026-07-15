@@ -5,12 +5,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/stnokott/firefly-import-helper/internal/config"
 	"github.com/stnokott/firefly-import-helper/internal/domain"
 	"github.com/stnokott/firefly-import-helper/internal/firefly"
 	"github.com/stnokott/firefly-import-helper/internal/log"
+
+	_ "time/tzdata"
 )
 
 var logger = log.For("importer")
@@ -21,6 +24,7 @@ type Importer struct {
 	bank         domain.BankConnector
 	fireflyRead  domain.FireflyReader
 	fireflyWrite domain.FireflyWriter
+	lastRun      time.Time
 }
 
 func New(cfg *config.YAML, msg domain.Messenger, bank domain.BankConnector, ffRead domain.FireflyReader, ffWrite domain.FireflyWriter) (*Importer, error) {
@@ -30,6 +34,7 @@ func New(cfg *config.YAML, msg domain.Messenger, bank domain.BankConnector, ffRe
 		bank:         bank,
 		fireflyRead:  ffRead,
 		fireflyWrite: ffWrite,
+		lastRun:      time.Date(1900, 1, 1, 0, 0, 0, 0, time.Local),
 	}
 	if err := im.validateConfig(); err != nil {
 		return nil, fmt.Errorf("config validation error: %w", err)
@@ -102,13 +107,25 @@ func (im *Importer) Import(ctx context.Context, dryRun bool) (err error) {
 		sum[i] = summary
 	}
 
+	im.lastRun = time.Now()
 	return im.msg.MsgImportFinished(ctx, sum)
+}
+
+// nextImportRange returns the timeframe for the next import using from and to times.
+//
+// In most cases, this is simply the timeframe from the last run to now,
+// although the time of the last run can be overriden if exceeds the earliest possible import time
+// as defined by the bank connector.
+func (im *Importer) nextImportRange() (from, to time.Time) {
+	minFrom := im.bank.MinImportTransactionTime()
+	from = slices.MaxFunc([]time.Time{im.lastRun, minFrom}, time.Time.Compare)
+	to = time.Now()
+	return
 }
 
 // importAccount imports transactions for the given account and returns the number of imported transactions.
 func (im *Importer) importAccount(ctx context.Context, acc domain.BankAccount) (int, error) {
-	from := im.bank.MinTransactionTime()
-	to := from.Add(7 * 24 * time.Hour)
+	from, to := im.nextImportRange()
 	transactions, err := im.bank.GetTransactions(ctx, acc.ID, from, to)
 	if err != nil {
 		return 0, fmt.Errorf("could not get transactions: %w", err)
@@ -116,32 +133,32 @@ func (im *Importer) importAccount(ctx context.Context, acc domain.BankAccount) (
 
 	created := 0
 	fireflyAccountID := im.cfg.AccountsByBankID[acc.ID].FireflyID // always resolves due to previous validation
-	for _, t := range transactions {
+	for i, t := range transactions {
 		if t.IsPending {
-			logger.Debugf("skipping pending transaction %s", t.ID)
+			logger.Infof("%03d/%03d - skipping pending transaction %s", i+1, len(transactions), t.ID)
 			continue
 		}
 
-		err := im.importTransaction(ctx, t, fireflyAccountID)
+		fireflyID, err := im.importTransaction(ctx, t, fireflyAccountID)
 		if err != nil {
 			// duplicate transactions are acceptable - continue
 			if errDuplicate, isDuplicate := errors.AsType[firefly.ErrDuplicateTransaction](err); isDuplicate {
-				logger.Infof("transaction with same data already exists as #%s", errDuplicate.DuplicateOf)
+				logger.Infof("%03d/%03d - duplicate transaction #%s ignored", i+1, len(transactions), errDuplicate.DuplicateOf)
 				// TODO: send message
 				continue
 			}
-			return created, fmt.Errorf("failed to import transaction %s: %w", t.ID, err)
+			return created, fmt.Errorf("failed to import transaction: %w", err)
 		}
+		logger.Infof("%03d/%03d - created transaction #%s", i+1, len(transactions), fireflyID)
 		created++
 	}
 	return created, nil
 }
 
-func (im *Importer) importTransaction(ctx context.Context, t domain.BankTransaction, fireflyAccountID string) error {
+func (im *Importer) importTransaction(ctx context.Context, t domain.BankTransaction, fireflyAccountID string) (string, error) {
 	id, err := im.fireflyWrite.CreateTransaction(ctx, fireflyAccountID, t)
 	if err != nil {
-		return fmt.Errorf("failed to create Firefly transaction: %w", err)
+		return "", fmt.Errorf("failed to create Firefly transaction: %w", err)
 	}
-	logger.Debugf("created Firefly transaction %s", id)
-	return nil
+	return id, nil
 }

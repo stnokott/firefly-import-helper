@@ -16,7 +16,8 @@ type BankConnector interface {
 	GetBalance(ctx context.Context, id int) (float64, error)
 	// GetTransactions returns the transactions of the given account within the given timeframe.
 	GetTransactions(ctx context.Context, id int, from time.Time, to time.Time) ([]BankTransaction, error)
-	MinTransactionTime() time.Time
+	// MinImportTransactionTime returns the earliest possible starting time for a import timeframe.
+	MinImportTransactionTime() time.Time
 }
 
 type BankAccount struct {
