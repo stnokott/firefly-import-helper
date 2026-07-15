@@ -9,7 +9,7 @@ import (
 
 	telebot "github.com/go-telegram/bot"
 	telemodels "github.com/go-telegram/bot/models"
-	"github.com/stnokott/firefly-import-helper/internal/importer"
+	"github.com/stnokott/firefly-import-helper/internal/domain"
 	"github.com/stnokott/firefly-import-helper/internal/log"
 )
 
@@ -21,11 +21,11 @@ type Bot struct {
 	chatID         string
 }
 
-var _ importer.Messenger = (*Bot)(nil)
+var _ domain.Messenger = (*Bot)(nil)
 
 const callbackDataPrefix = "category:"
 
-func NewBot(token string, fireflyBaseURL url.URL, telegramChatID string) (*Bot, error) {
+func NewBot(token string, fireflyBaseURL url.URL, telegramChatID string) (domain.Messenger, error) {
 	t, err := telebot.New(
 		token,
 		telebot.WithCallbackQueryDataHandler(callbackDataPrefix, telebot.MatchTypePrefix, callbackHandlerCategory),
@@ -43,7 +43,7 @@ func NewBot(token string, fireflyBaseURL url.URL, telegramChatID string) (*Bot, 
 	}, nil
 }
 
-func (b *Bot) Run(ctx context.Context) {
+func (b *Bot) Listen(ctx context.Context) {
 	_, err := b.t.SendMessage(ctx, &telebot.SendMessageParams{
 		ChatID: b.chatID,
 		Text:   "Firefly-III Import Helper started.",
@@ -75,7 +75,7 @@ func (b *Bot) MsgImportStarted(ctx context.Context) error {
 	return nil
 }
 
-func (b *Bot) MsgImportFinished(ctx context.Context, sum []importer.Summary) error {
+func (b *Bot) MsgImportFinished(ctx context.Context, sum []domain.Summary) error {
 	msg, err := b.renderTmplSummary(sum)
 	if err != nil {
 		return err

@@ -78,3 +78,17 @@ func (a FireflyAccounts) Active() iter.Seq[FireflyAccount] {
 		}
 	}
 }
+
+// Messenger handles communication between user and this program.
+type Messenger interface {
+	Listen(ctx context.Context)
+	MsgImportStarted(ctx context.Context) error
+	MsgImportFinished(ctx context.Context, sum []Summary) error
+}
+
+type Summary struct {
+	Account     string
+	Institution string
+	Success     bool
+	Info        string
+}

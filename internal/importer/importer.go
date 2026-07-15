@@ -14,13 +14,13 @@ var logger = log.For("importer")
 
 type Importer struct {
 	cfg          *config.YAML
-	msg          Messenger
+	msg          domain.Messenger
 	bank         domain.BankConnector
 	fireflyRead  domain.FireflyReader
 	fireflyWrite domain.FireflyWriter
 }
 
-func New(cfg *config.YAML, msg Messenger, bank domain.BankConnector, ffRead domain.FireflyReader, ffWrite domain.FireflyWriter) (*Importer, error) {
+func New(cfg *config.YAML, msg domain.Messenger, bank domain.BankConnector, ffRead domain.FireflyReader, ffWrite domain.FireflyWriter) (*Importer, error) {
 	im := &Importer{
 		cfg:          cfg,
 		msg:          msg,
@@ -32,20 +32,6 @@ func New(cfg *config.YAML, msg Messenger, bank domain.BankConnector, ffRead doma
 		return nil, fmt.Errorf("config validation error: %w", err)
 	}
 	return im, nil
-}
-
-// Messenger handles communication between user and this program.
-type Messenger interface {
-	MsgImportStarted(ctx context.Context) error
-	MsgImportFinished(ctx context.Context, sum []Summary) error
-	// MsgNewTransaction(ctx context.Context, t domain.FireflyTransaction) error
-}
-
-type Summary struct {
-	Account     string
-	Institution string
-	Success     bool
-	Info        string
 }
 
 func (im *Importer) validateConfig() error {
@@ -77,10 +63,10 @@ func (im *Importer) Import(ctx context.Context, dryRun bool) (err error) {
 		return err
 	}
 
-	sum := make([]Summary, len(accounts))
+	sum := make([]domain.Summary, len(accounts))
 	for i, acc := range accounts {
 		logger.Infof("importing %d/%d: %s @ %s", i+1, len(accounts), acc.Name, acc.Institution)
-		summary := Summary{
+		summary := domain.Summary{
 			Account:     acc.Name,
 			Institution: acc.Institution,
 		}

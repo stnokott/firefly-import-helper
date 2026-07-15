@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"text/template"
 
-	"github.com/stnokott/firefly-import-helper/internal/importer"
+	"github.com/stnokott/firefly-import-helper/internal/domain"
 )
 
 type tmplDataSummary struct {
-	Summaries []importer.Summary
+	Summaries []domain.Summary
 }
 
 var tmplSummary = template.Must(template.New("telegramMsgSummary").Parse(
@@ -21,7 +21,7 @@ var tmplSummary = template.Must(template.New("telegramMsgSummary").Parse(
 `,
 ))
 
-func (*Bot) renderTmplSummary(sum []importer.Summary) (string, error) {
+func (*Bot) renderTmplSummary(sum []domain.Summary) (string, error) {
 	data := tmplDataSummary{
 		Summaries: sum,
 	}
