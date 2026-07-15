@@ -34,7 +34,6 @@ func ConvertTransaction(source domain.BankTransaction, context string) generated
 	generatedTransactionSplitStore.DestinationId = getDestinationID(source, context)
 	generatedTransactionSplitStore.DestinationName = getDestinationName(source)
 	generatedTransactionSplitStore.ExternalId = nullableString(source.ID)
-	generatedTransactionSplitStore.ProcessDate = now()
 	generatedTransactionSplitStore.SourceId = getSourceID(source, context)
 	generatedTransactionSplitStore.SourceName = getSourceName(source)
 	generatedTransactionSplitStore.Type = mapTransactionType(source.Type)

@@ -2,11 +2,13 @@ package importer
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/stnokott/firefly-import-helper/internal/config"
 	"github.com/stnokott/firefly-import-helper/internal/domain"
+	"github.com/stnokott/firefly-import-helper/internal/firefly"
 	"github.com/stnokott/firefly-import-helper/internal/log"
 )
 
@@ -111,6 +113,7 @@ func (im *Importer) importAccount(ctx context.Context, acc domain.BankAccount) (
 		return 0, fmt.Errorf("could not get transactions: %w", err)
 	}
 
+	created := 0
 	fireflyAccountID := im.cfg.AccountsByBankID[acc.ID].FireflyID // always resolves due to previous validation
 	for _, t := range transactions {
 		if t.IsPending {
@@ -118,11 +121,18 @@ func (im *Importer) importAccount(ctx context.Context, acc domain.BankAccount) (
 			continue
 		}
 
-		if err := im.importTransaction(ctx, t, fireflyAccountID); err != nil {
-			return 0, fmt.Errorf("failed to import transaction %s: %w", t.ID, err)
+		err := im.importTransaction(ctx, t, fireflyAccountID)
+		if err != nil {
+			if errDuplicate, isDuplicate := errors.AsType[firefly.ErrDuplicateTransaction](err); isDuplicate {
+				logger.Infof("transaction with same data already exists as #%s", errDuplicate.DuplicateOf)
+				// TODO: send message
+				continue
+			}
+			return created, fmt.Errorf("failed to import transaction %s: %w", t.ID, err)
 		}
+		created++
 	}
-	return len(transactions), nil
+	return created, nil
 }
 
 func (im *Importer) importTransaction(ctx context.Context, t domain.BankTransaction, fireflyAccountID string) error {

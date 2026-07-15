@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"strings"
 
 	"github.com/oapi-codegen/nullable"
 	"github.com/stnokott/firefly-import-helper/internal/config"
@@ -33,6 +32,7 @@ func New(baseURL url.URL, token string) (FireflyReadWriter, error) {
 		baseURL.JoinPath("/api").String(),
 		generated.WithRequestEditorFn(func(ctx context.Context, req *http.Request) error {
 			req.Header.Add("Authorization", "Bearer "+token)
+			req.Header.Add("Accept", "application/json")
 			req.Header.Add("User-Agent", config.AppName)
 			logger.Debugf(">> %s %v?%s", req.Method, req.URL, req.URL.RawQuery)
 			return nil
@@ -74,7 +74,7 @@ func (c *client) CreateTransaction(ctx context.Context, accountID string, t doma
 		return "", fmt.Errorf("could not create transaction: %w", err)
 	}
 	if resp.StatusCode() != 200 {
-		return "", errGenericResponse(resp.Status(), resp.Body)
+		return "", errFromResponse(resp.StatusCode(), resp.Body)
 	}
 	return resp.ApplicationvndApiJSON200.Data.Id, nil
 }
@@ -88,7 +88,7 @@ func paginatedRequest[V any](get func(page int32) (status int, body []byte, err 
 		}
 
 		if status != 200 {
-			return nil, errGenericResponse(http.StatusText(status), resp)
+			return nil, errFromResponse(status, resp)
 		}
 
 		type paginatedResponse[V any] struct {
@@ -123,21 +123,55 @@ func paginatedRequest[V any](get func(page int32) (status int, body []byte, err 
 	}
 }
 
-func errGenericResponse(statusText string, body []byte) error {
-	var e struct {
-		Message   *string `json:"message"`
-		Exception *string `json:"exception"`
+func errFromResponse(status int, body []byte) error {
+	switch status {
+	case 400:
+		e := generated.BadRequestResponse{}
+		if err := json.Unmarshal(body, &e); err != nil {
+			return fmt.Errorf(`failed to unmarshal HTTP response for status 400: %w - "%s"`, err, string(body))
+		}
+		return e
+	case 401:
+		e := generated.UnauthenticatedResponse{}
+		if err := json.Unmarshal(body, &e); err != nil {
+			return fmt.Errorf(`failed to unmarshal HTTP response for status 401: %w - "%s"`, err, string(body))
+		}
+		return e
+	case 404:
+		e := generated.NotFoundResponse{}
+		if err := json.Unmarshal(body, &e); err != nil {
+			return fmt.Errorf(`failed to unmarshal HTTP response for status 404: %w - "%s"`, err, string(body))
+		}
+		return e
+	case 422:
+		e := generated.ValidationErrorResponse{}
+		if err := json.Unmarshal(body, &e); err != nil {
+			return fmt.Errorf(`failed to unmarshal HTTP response for status 422: %w - "%s"`, err, string(body))
+		}
+		if duplicateID, isDuplicateErr := e.IsDuplicateTransactionErr(); isDuplicateErr {
+			return ErrDuplicateTransaction{DuplicateOf: duplicateID}
+		}
+		return e
+	case 500:
+		e := generated.InternalExceptionResponse{}
+		if err := json.Unmarshal(body, &e); err != nil {
+			return fmt.Errorf(`failed to unmarshal HTTP response for status 500: %w - "%s"`, err, string(body))
+		}
+		return e
+	default:
+		logger.Warnf("unhandled HTTP response %d", status)
+		var e any
+		if err := json.Unmarshal(body, &e); err != nil {
+			return fmt.Errorf(`invalid JSON for HTTP response %d: %w - "%s"`, status, err, string(body))
+		}
+		return fmt.Errorf("unknown HTTP response %d: %v", status, e)
 	}
-	if err := json.Unmarshal(body, &e); err != nil {
-		return fmt.Errorf("could not unmarshal response JSON for status %s: %w - '%s'", statusText, err, string(body))
-	}
+}
 
-	infos := make([]string, 0, 2)
-	if e.Exception != nil {
-		infos = append(infos, *e.Exception)
-	}
-	if e.Message != nil {
-		infos = append(infos, *e.Message)
-	}
-	return fmt.Errorf("%s: %s", statusText, strings.Join(infos, " - "))
+type ErrDuplicateTransaction struct {
+	DuplicateOf string
+}
+
+func (e ErrDuplicateTransaction) Error() string {
+	return "duplicate of transaction #" + e.DuplicateOf
 }

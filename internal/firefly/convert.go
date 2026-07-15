@@ -34,15 +34,14 @@ type Converter interface {
 	//goverter:default defaultTransactionSplitStore
 	//goverter:ignore BillId BillName BudgetId BudgetName CategoryId CategoryName CurrencyId
 	//goverter:ignore DueDate ExternalUrl ForeignAmount ForeignCurrencyCode ForeignCurrencyId InterestDate
-	//goverter:ignore InternalReference InvoiceDate Notes Order PaymentDate PiggyBankId PiggyBankName Reconciled
-	//goverter:ignore SepaBatchId SepaCc SepaCi SepaCountry SepaCtId SepaCtOp SepaDb SepaEp
+	//goverter:ignore InternalReference InvoiceDate Notes Order PaymentDate PiggyBankId PiggyBankName ProcessDate
+	//goverter:ignore Reconciled SepaBatchId SepaCc SepaCi SepaCountry SepaCtId SepaCtOp SepaDb SepaEp
 	//goverter:ignore Tags
 	//goverter:map Date BookDate
 	//goverter:map Currency CurrencyCode
 	//goverter:map . DestinationId | getDestinationID
 	//goverter:map . DestinationName | getDestinationName
 	//goverter:map ID ExternalId
-	//goverter:map ProcessDate | now
 	//goverter:map . SourceId | getSourceID
 	//goverter:map . SourceName | getSourceName
 	ConvertTransaction(t domain.BankTransaction, ffAccountID string) generated.TransactionSplitStore
@@ -53,10 +52,6 @@ func boolOrTrue(b *bool) bool {
 		return *b
 	}
 	return true
-}
-
-func now() nullable.Nullable[time.Time] {
-	return nullable.NewNullableWithValue(time.Now())
 }
 
 func copyTime(t time.Time) time.Time {
@@ -72,7 +67,7 @@ func nullableString(s string) nullable.Nullable[string] {
 }
 
 func defaultTransactionSplitStore() generated.TransactionSplitStore {
-	notes := fmt.Sprintf("imported at %s using %s", time.Now().Format(time.DateTime), config.AppName)
+	notes := fmt.Sprintf("imported using %s", config.AppName)
 	return generated.TransactionSplitStore{
 		Notes:      nullable.NewNullableWithValue(notes),
 		Reconciled: new(true),

@@ -4,6 +4,6 @@ info:
   version: 0.0.0
 actions:
   - target: "$.components.schemas.*.properties.amount"
-    description: "Use custom unmarshallable type"
+    description: "Use custom deserializable type"
     update:
       x-go-type: Amount
