@@ -1,6 +1,7 @@
 package lunchflow
 
 import (
+	"strings"
 	"time"
 
 	"github.com/stnokott/firefly-import-helper/internal/domain"
@@ -27,7 +28,7 @@ type Converter interface {
 	ConvertTransactions([]Transaction) []domain.BankTransaction
 	//goverter:map Amount Amount | math:Abs
 	//goverter:map . Type  | determineTransactionType
-	//goverter:map Description | descriptionOrEmpty
+	//goverter:map . Description | applyDescriptionRules
 	//goverter:map IsPending | boolOrFalse
 	ConvertTransaction(Transaction) domain.BankTransaction
 }
@@ -57,9 +58,27 @@ func copyDateTime(t DateTime) time.Time {
 	return t.Time
 }
 
-func descriptionOrEmpty(desc *string) string {
-	if desc != nil {
-		return *desc
+func applyDescriptionRules(t Transaction) string {
+	if t.Description == nil {
+		return "<no description>"
 	}
-	return "<no description>"
+
+	desc := *t.Description
+	for name, rule := range descriptionRules {
+		logger.Debugf("before description transformation rule '%s': %s", name, desc)
+		desc = rule(desc)
+		logger.Debugf("after description transformation rule '%s': %s", name, desc)
+	}
+
+	return desc
+}
+
+type descriptionRule func(string) string
+
+var descriptionRules = map[string]descriptionRule{
+	"Semicolons": func(desc string) string {
+		// Some transaction descriptions seem to be formatted with "; " inbetween characters.
+		// E.g. "1234567890123/PP.1234.PP/. Firefly; III sto, re, Your purchase at Firefly II; I store"
+		return strings.Join(strings.Split(desc, "; "), "")
+	},
 }

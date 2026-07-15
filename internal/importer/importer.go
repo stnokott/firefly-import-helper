@@ -119,7 +119,8 @@ func (im *Importer) Import(ctx context.Context, dryRun bool) (err error) {
 func (im *Importer) nextImportRange() (from, to time.Time) {
 	minFrom := im.bank.MinImportTransactionTime()
 	from = slices.MaxFunc([]time.Time{im.lastRun, minFrom}, time.Time.Compare)
-	to = time.Now()
+	// to = time.Now()
+	to = from.Add(7 * 24 * time.Hour)
 	return
 }
 

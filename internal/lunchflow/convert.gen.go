@@ -49,7 +49,7 @@ func ConvertTransaction(source Transaction) domain.BankTransaction {
 	domainBankTransaction.Amount = math.Abs(source.Amount)
 	domainBankTransaction.Currency = source.Currency
 	domainBankTransaction.Date = copyDateTime(source.Date)
-	domainBankTransaction.Description = descriptionOrEmpty(source.Description)
+	domainBankTransaction.Description = applyDescriptionRules(source)
 	if source.Merchant != nil {
 		xstring := *source.Merchant
 		domainBankTransaction.Merchant = &xstring
