@@ -1,3 +1,6 @@
+// Package lunchflow is a wrapper for the REST API of Lunchflow.
+//
+// https://lunchflow.app
 package lunchflow
 
 import (

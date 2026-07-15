@@ -1,3 +1,4 @@
+// Package importer performs the actual account import by leveraging all involved services.
 package importer
 
 import (

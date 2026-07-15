@@ -1,3 +1,4 @@
+// Package domain provides business structs for cross-package type agreements.
 package domain
 
 import (

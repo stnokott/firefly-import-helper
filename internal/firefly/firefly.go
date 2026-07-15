@@ -1,3 +1,4 @@
+// Package firefly interacts with the Firefly instance via its REST API.
 package firefly
 
 import (

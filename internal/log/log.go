@@ -1,3 +1,4 @@
+// Package log provides per-component scoped logging.
 package log
 
 import (
