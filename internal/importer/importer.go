@@ -90,7 +90,7 @@ func (im *Importer) Import(ctx context.Context, dryRun bool) (err error) {
 			if err != nil {
 				logger.ErrorV(err)
 				summary.Success = false
-				summary.Info = err.Error()
+				summary.Info = fmt.Sprintf("error occurred after %d imports: %s", imported, err.Error())
 			} else {
 				logger.Infof("%d transactions imported", imported)
 				summary.Success = true
@@ -123,6 +123,7 @@ func (im *Importer) importAccount(ctx context.Context, acc domain.BankAccount) (
 
 		err := im.importTransaction(ctx, t, fireflyAccountID)
 		if err != nil {
+			// duplicate transactions are acceptable - continue
 			if errDuplicate, isDuplicate := errors.AsType[firefly.ErrDuplicateTransaction](err); isDuplicate {
 				logger.Infof("transaction with same data already exists as #%s", errDuplicate.DuplicateOf)
 				// TODO: send message
