@@ -65,32 +65,14 @@ func (c *Client) GetAccounts(ctx context.Context) ([]domain.BankAccount, error) 
 	return ConvertAccounts(accounts.Accounts), nil
 }
 
-func (c *Client) listAccounts(ctx context.Context) (*Accounts, error) {
-	u := c.baseURL.JoinPath("/accounts")
-	resp, err := c.get(ctx, u.String()) //nolint:bodyclose // will be closed in parseResponse
-	if err != nil {
-		return nil, err
-	}
-	return parseResponse[Accounts](resp, 200)
-}
-
 func (c *Client) GetBalance(ctx context.Context, id int) (float64, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	balance, err := c.getAccountBalance(ctx, int(id))
+	balance, err := c.getAccountBalance(ctx, id)
 	if err != nil {
 		return -1, err
 	}
 	return balance.Balance.Amount, nil
-}
-
-func (c *Client) getAccountBalance(ctx context.Context, id int) (*Balance, error) {
-	u := c.baseURL.JoinPath("/accounts/", strconv.Itoa(id), "/balance")
-	resp, err := c.get(ctx, u.String()) //nolint:bodyclose // will be closed in parseResponse
-	if err != nil {
-		return nil, err
-	}
-	return parseResponse[Balance](resp, 200)
 }
 
 func (c *Client) GetTransactions(ctx context.Context, id int, from time.Time, to time.Time) ([]domain.BankTransaction, error) {
@@ -122,12 +104,30 @@ func (*Client) MinImportTransactionTime() time.Time {
 	return time.Now().Truncate(24 * time.Hour).Add(24 * time.Hour).Add(-maxTransactionTimePast)
 }
 
-func (c *Client) get(ctx context.Context, url string) (*http.Response, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+func (c *Client) listAccounts(ctx context.Context) (*Accounts, error) {
+	u := c.baseURL.JoinPath("/accounts")
+	resp, err := c.get(ctx, u.String()) //nolint:bodyclose // will be closed in parseResponse
+	if err != nil {
+		return nil, err
+	}
+	return parseResponse[Accounts](resp, 200)
+}
+
+func (c *Client) getAccountBalance(ctx context.Context, id int) (*Balance, error) {
+	u := c.baseURL.JoinPath("/accounts/", strconv.Itoa(id), "/balance")
+	resp, err := c.get(ctx, u.String()) //nolint:bodyclose // will be closed in parseResponse
+	if err != nil {
+		return nil, err
+	}
+	return parseResponse[Balance](resp, 200)
+}
+
+func (c *Client) get(ctx context.Context, u string) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("could not create request: %w", err)
 	}
-	req.Header.Add("x-api-key", c.apiKey)
+	req.Header.Add("X-Api-Key", c.apiKey)
 	req.Header.Add("Accept", "application/json")
 	req.Header.Add("User-Agent", config.AppName)
 

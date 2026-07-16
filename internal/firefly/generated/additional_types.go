@@ -18,7 +18,7 @@ func (a *Amount) UnmarshalJSON(v []byte) error {
 	return nil
 }
 
-// implement error interface for error responses
+// Implement error interface for error responses.
 
 func (r BadRequestResponse) Error() string {
 	if r.Message == nil {

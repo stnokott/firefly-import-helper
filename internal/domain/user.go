@@ -27,7 +27,7 @@ func CensorEmail(e types.Email) string {
 // censorString returns s, with the first maxClear characters retained and the remaining characters
 // replaced with an asterisk.
 //
-// Example: censorString("123foo", 2) // returns "12****"
+// Example: censorString("123foo", 2) // returns "12****".
 func censorString(s string, maxClear int) string {
 	if len(s) <= maxClear {
 		return strings.Repeat("*", len(s))

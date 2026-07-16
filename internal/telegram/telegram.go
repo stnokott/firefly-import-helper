@@ -36,6 +36,7 @@ func NewBot(token string, fireflyBaseURL url.URL, telegramChatID string) (domain
 	if err != nil {
 		return nil, fmt.Errorf("could not create telegram bot: %w", err)
 	}
+
 	return &Bot{
 		t:              t,
 		fireflyBaseURL: fireflyBaseURL,
@@ -72,6 +73,7 @@ func (b *Bot) MsgImportStarted(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("could not send message: %w", err)
 	}
+
 	return nil
 }
 
@@ -88,6 +90,7 @@ func (b *Bot) MsgImportFinished(ctx context.Context, sum []domain.Summary) error
 	if err != nil {
 		return fmt.Errorf("could not send message: %w", err)
 	}
+
 	return nil
 }
 

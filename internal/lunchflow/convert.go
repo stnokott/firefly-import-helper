@@ -77,7 +77,7 @@ type descriptionRule func(string) string
 
 var descriptionRules = map[string]descriptionRule{
 	"Semicolons": func(desc string) string {
-		// Some transaction descriptions seem to be formatted with "; " inbetween characters.
+		// Some transaction descriptions seem to be formatted with "; " in-between characters.
 		// E.g. "1234567890123/PP.1234.PP/. Firefly; III sto, re, Your purchase at Firefly II; I store"
 		return strings.Join(strings.Split(desc, "; "), "")
 	},

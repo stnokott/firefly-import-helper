@@ -122,9 +122,7 @@ func run(env *config.Env, dryRun bool, disableNotifications bool) error {
 		return im.Import(ctxImporter, dryRun)
 	})
 
-	defer func() {
-		// wait for potential shutdown actions in goroutines like sending goodbye messages
-		time.Sleep(1 * time.Second)
-	}()
+	// wait for potential shutdown actions in goroutines like sending goodbye messages
+	defer time.Sleep(1 * time.Second)
 	return eg.Wait()
 }

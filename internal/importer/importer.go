@@ -34,7 +34,7 @@ func New(cfg *config.YAML, msg domain.Messenger, bank domain.BankConnector, ffRe
 		bank:         bank,
 		fireflyRead:  ffRead,
 		fireflyWrite: ffWrite,
-		lastRun:      time.Date(1900, 1, 1, 0, 0, 0, 0, time.Local),
+		lastRun:      time.Date(1900, 1, 1, 0, 0, 0, 0, time.UTC),
 	}
 	if err := im.validateConfig(); err != nil {
 		return nil, fmt.Errorf("config validation error: %w", err)
@@ -114,12 +114,11 @@ func (im *Importer) Import(ctx context.Context, dryRun bool) (err error) {
 // nextImportRange returns the timeframe for the next import using from and to times.
 //
 // In most cases, this is simply the timeframe from the last run to now,
-// although the time of the last run can be overriden if exceeds the earliest possible import time
+// although the time of the last run can be overridden if exceeds the earliest possible import time
 // as defined by the bank connector.
 func (im *Importer) nextImportRange() (from, to time.Time) {
 	minFrom := im.bank.MinImportTransactionTime()
 	from = slices.MaxFunc([]time.Time{im.lastRun, minFrom}, time.Time.Compare)
-	// to = time.Now()
 	to = from.Add(7 * 24 * time.Hour)
 	return
 }
@@ -143,7 +142,7 @@ func (im *Importer) importAccount(ctx context.Context, acc domain.BankAccount) (
 		fireflyID, err := im.importTransaction(ctx, t, fireflyAccountID)
 		if err != nil {
 			// duplicate transactions are acceptable - continue
-			if errDuplicate, isDuplicate := errors.AsType[firefly.ErrDuplicateTransaction](err); isDuplicate {
+			if errDuplicate, isDuplicate := errors.AsType[firefly.DuplicateTransactionError](err); isDuplicate {
 				logger.Infof("%03d/%03d - duplicate transaction #%s ignored", i+1, len(transactions), errDuplicate.DuplicateOf)
 				// TODO: send message
 				continue

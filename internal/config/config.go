@@ -19,7 +19,7 @@ const (
 	AppName = "github.com/stnokott/firefly-import-helper" // TODO: add version from build
 )
 
-// Env contains the configuration data read from environment variables
+// Env contains the configuration data read from environment variables.
 type Env struct {
 	TelegramBotToken   string `required:"true" envconfig:"TELEGRAM_BOT_TOKEN"`
 	TelegramChatID     string `required:"true" envconfig:"TELEGRAM_CHAT_ID"`
@@ -66,6 +66,7 @@ func (u *URL) Decode(v string) error {
 	*u = URL{
 		URL: *parsed,
 	}
+
 	return nil
 }
 
@@ -88,6 +89,7 @@ func ReadYAML(yamlFile string) (*YAML, error) {
 	for _, acc := range cfg.Accounts {
 		cfg.AccountsByBankID[acc.BankID] = acc
 	}
+
 	return cfg, nil
 }
 
@@ -100,6 +102,7 @@ func readYAML(file string, cfg *YAML) error {
 	if err = yaml.Unmarshal(yamlBytes, cfg); err != nil {
 		return fmt.Errorf("could not decode YAML in %s: %w", file, err)
 	}
+
 	return nil
 }
 
@@ -113,8 +116,10 @@ func ReadEnv() (*Env, error) {
 	if err := envconfig.Process("", env); err != nil {
 		buf := bytes.NewBuffer(nil)
 		_ = envconfig.Usagef("", env, buf, envconfig.DefaultTableFormat)
+
 		return nil, fmt.Errorf("%w: %s", err, buf.String())
 	}
+
 	return env, nil
 }
 
@@ -123,6 +128,7 @@ func Exists(file string) bool {
 	if err == nil {
 		return true
 	}
+
 	return !errors.Is(err, fs.ErrNotExist)
 }
 
@@ -141,7 +147,7 @@ func WriteBootstrappedConfig(file string, accounts []domain.BankAccount) error {
 	if err != nil {
 		return fmt.Errorf("could not marshal YAML: %w", err)
 	}
-	if err = os.WriteFile(file, data, 0o644); err != nil {
+	if err = os.WriteFile(file, data, 0o600); err != nil {
 		return fmt.Errorf("could not write to file %s: %w", file, err)
 	}
 	return nil
@@ -189,14 +195,14 @@ func (cfg *YAML) validate() error {
 	seenIDs := map[int]struct{}{}
 	for acc := range cfg.Accounts.Active() {
 		if acc.BankID == 0 {
-			return fmt.Errorf(`account "%s": "bank_id" is required - re-initialize config if you accidentally deleted it`, acc.Name)
+			return fmt.Errorf(`account %q: "bank_id" is required - re-initialize config if you accidentally deleted it`, acc.Name)
 		}
 		if acc.FireflyID == "" {
-			return fmt.Errorf(`account "%s": set "firefly_id" or "ignore: true"`, acc.Name)
+			return fmt.Errorf(`account %q: set "firefly_id" or "ignore: true"`, acc.Name)
 		}
 
 		if _, seen := seenIDs[acc.BankID]; seen {
-			return fmt.Errorf(`account "%s": duplicate "bank_id" %d - please re-initialize the config`, acc.Name, acc.BankID)
+			return fmt.Errorf(`account %q: duplicate "bank_id" %d - please re-initialize the config`, acc.Name, acc.BankID)
 		}
 		seenIDs[acc.BankID] = struct{}{}
 	}
@@ -212,7 +218,7 @@ func (cfg *YAML) ValidateFireflyIDs(ffAccounts domain.FireflyAccounts) error {
 
 	for acc := range cfg.Accounts.Active() {
 		if _, exists := accountIDs[acc.FireflyID]; !exists {
-			return fmt.Errorf(`account "%s": no active account with id "%s" found in Firefly`, acc.Name, acc.FireflyID)
+			return fmt.Errorf("account %q: no active account with id %q found in Firefly", acc.Name, acc.FireflyID)
 		}
 	}
 	return nil

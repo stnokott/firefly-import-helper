@@ -1,7 +1,6 @@
 package firefly
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/oapi-codegen/nullable"
@@ -67,7 +66,7 @@ func nullableString(s string) nullable.Nullable[string] {
 }
 
 func defaultTransactionSplitStore() generated.TransactionSplitStore {
-	notes := fmt.Sprintf("imported using %s", config.AppName)
+	notes := "imported using " + config.AppName
 	return generated.TransactionSplitStore{
 		Notes:      nullable.NewNullableWithValue(notes),
 		Reconciled: new(true),

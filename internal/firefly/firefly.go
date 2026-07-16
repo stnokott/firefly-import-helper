@@ -86,7 +86,7 @@ func (c *client) CreateTransaction(ctx context.Context, accountID string, t doma
 	if existingTransaction, err := c.searchTransactionByExternalID(ctx, t.ID); err != nil {
 		return "", fmt.Errorf("failed to search for transaction by external ID %s: %w", t.ID, err)
 	} else if existingTransaction != nil {
-		return "", ErrDuplicateTransaction{
+		return "", DuplicateTransactionError{
 			DuplicateOf:  existingTransaction.Id,
 			byExternalID: true,
 		}
@@ -116,7 +116,7 @@ func paginatedRequest[V any](get func(page int32) (status int, body []byte, err 
 			return nil, err
 		}
 
-		if status != 200 {
+		if status != http.StatusOK {
 			return nil, errFromResponse(status, resp)
 		}
 
@@ -157,52 +157,52 @@ func errFromResponse(status int, body []byte) error {
 	case 400:
 		e := generated.BadRequestResponse{}
 		if err := json.Unmarshal(body, &e); err != nil {
-			return fmt.Errorf(`failed to unmarshal HTTP response for status 400: %w - "%s"`, err, string(body))
+			return fmt.Errorf("failed to unmarshal HTTP response for status 400: %w - %q", err, string(body))
 		}
 		return e
 	case 401:
 		e := generated.UnauthenticatedResponse{}
 		if err := json.Unmarshal(body, &e); err != nil {
-			return fmt.Errorf(`failed to unmarshal HTTP response for status 401: %w - "%s"`, err, string(body))
+			return fmt.Errorf("failed to unmarshal HTTP response for status 401: %w - %q", err, string(body))
 		}
 		return e
 	case 404:
 		e := generated.NotFoundResponse{}
 		if err := json.Unmarshal(body, &e); err != nil {
-			return fmt.Errorf(`failed to unmarshal HTTP response for status 404: %w - "%s"`, err, string(body))
+			return fmt.Errorf("failed to unmarshal HTTP response for status 404: %w - %q", err, string(body))
 		}
 		return e
 	case 422:
 		e := generated.ValidationErrorResponse{}
 		if err := json.Unmarshal(body, &e); err != nil {
-			return fmt.Errorf(`failed to unmarshal HTTP response for status 422: %w - "%s"`, err, string(body))
+			return fmt.Errorf("failed to unmarshal HTTP response for status 422: %w - %q", err, string(body))
 		}
 		if duplicateID, isDuplicateErr := e.IsDuplicateTransactionErr(); isDuplicateErr {
-			return ErrDuplicateTransaction{DuplicateOf: duplicateID}
+			return DuplicateTransactionError{DuplicateOf: duplicateID}
 		}
 		return e
 	case 500:
 		e := generated.InternalExceptionResponse{}
 		if err := json.Unmarshal(body, &e); err != nil {
-			return fmt.Errorf(`failed to unmarshal HTTP response for status 500: %w - "%s"`, err, string(body))
+			return fmt.Errorf("failed to unmarshal HTTP response for status 500: %w - %q", err, string(body))
 		}
 		return e
 	default:
 		logger.Warnf("unhandled HTTP response %d", status)
 		var e any
 		if err := json.Unmarshal(body, &e); err != nil {
-			return fmt.Errorf(`invalid JSON for HTTP response %d: %w - "%s"`, status, err, string(body))
+			return fmt.Errorf("invalid JSON for HTTP response %d: %w - %q", status, err, string(body))
 		}
 		return fmt.Errorf("unknown HTTP response %d: %v", status, e)
 	}
 }
 
-type ErrDuplicateTransaction struct {
+type DuplicateTransactionError struct {
 	DuplicateOf  string
 	byExternalID bool
 }
 
-func (e ErrDuplicateTransaction) Error() string {
+func (e DuplicateTransactionError) Error() string {
 	if e.byExternalID {
 		return "duplicate of transaction #" + e.DuplicateOf + " (by external ID)"
 	}

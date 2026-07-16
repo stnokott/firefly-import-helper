@@ -8,6 +8,7 @@ import (
 )
 
 func TestCensorEmail(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		title string
 		email types.Email
@@ -36,6 +37,7 @@ func TestCensorEmail(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.title, func(t *testing.T) {
+			t.Parallel()
 			got := CensorEmail(tt.email)
 			assert.Equal(t, tt.want, got)
 		})

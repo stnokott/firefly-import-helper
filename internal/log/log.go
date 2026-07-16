@@ -61,7 +61,7 @@ func (l Logger) print(r record) {
 		r.msg,
 	}
 
-	fmt.Println(parts...) //nolint: errcheck // err always nil
+	fmt.Println(parts...)
 }
 
 func (l Logger) Debug(s string) {

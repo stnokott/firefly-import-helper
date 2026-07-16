@@ -12,7 +12,9 @@ import (
 )
 
 func TestListAccounts(t *testing.T) {
-	t.Run("200", func(t *testing.T) {
+	t.Parallel()
+	t.Run("ok", func(t *testing.T) {
+		t.Parallel()
 		c := newMockedClient(t, func(rw http.ResponseWriter, req *http.Request) {
 			respStruct := Accounts{
 				Accounts: []Account{
@@ -28,8 +30,8 @@ func TestListAccounts(t *testing.T) {
 				Total: 1,
 			}
 			respBytes, err := json.Marshal(respStruct)
-			require.NoError(t, err)
-			rw.WriteHeader(200)
+			assert.NoError(t, err)
+			rw.WriteHeader(http.StatusOK)
 			_, _ = rw.Write(respBytes)
 		})
 		resp, err := c.listAccounts(context.Background())
@@ -38,27 +40,30 @@ func TestListAccounts(t *testing.T) {
 		assert.Equal(t, 123, resp.Accounts[0].ID)
 	})
 
-	t.Run("401", func(t *testing.T) {
+	t.Run("unauthorized", func(t *testing.T) {
+		t.Parallel()
 		c := newMockedClient(t, func(rw http.ResponseWriter, req *http.Request) {
 			respStruct := Error{
 				Err:     "Unauthorized",
 				Message: "Authentication required.",
 			}
 			respBytes, err := json.Marshal(respStruct)
-			require.NoError(t, err)
-			rw.WriteHeader(401)
+			assert.NoError(t, err)
+			rw.WriteHeader(http.StatusUnauthorized)
 			_, _ = rw.Write(respBytes)
 		})
 		resp, err := c.listAccounts(context.Background())
 		require.Nil(t, resp)
-		require.IsType(t, &Error{}, err)
-		assert.NotEmpty(t, err.(*Error).Err)
-		assert.NotEmpty(t, err.(*Error).Message)
+		e := new(Error)
+		require.ErrorAs(t, err, &e)
+		assert.NotEmpty(t, e.Err)
+		assert.NotEmpty(t, e.Message)
 	})
 
 	t.Run("invalid response JSON", func(t *testing.T) {
+		t.Parallel()
 		c := newMockedClient(t, func(rw http.ResponseWriter, req *http.Request) {
-			rw.WriteHeader(500)
+			rw.WriteHeader(http.StatusInternalServerError)
 			_, _ = rw.Write([]byte(
 				`<!DOCTYPE html><html><body>Absolutely not</body></html>`,
 			))
@@ -72,7 +77,8 @@ func TestListAccounts(t *testing.T) {
 }
 
 func newMockedClient(t *testing.T, handler http.HandlerFunc) *Client {
-	srv := httptest.NewServer(http.HandlerFunc(handler))
+	t.Helper()
+	srv := httptest.NewServer(handler)
 	t.Cleanup(srv.Close)
 	c := NewClient("123").(*Client)
 	c.httpClient = srv.Client()

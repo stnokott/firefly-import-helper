@@ -3,40 +3,84 @@ version: "2"
 run:
   timeout: "3m"
 linters:
-  default: none
-  enable:
-    - errcheck
-    - gocritic
-    - govet
-    - revive
-    - ineffassign
-    - staticcheck
-    - unused
-    - bodyclose
-    - decorder
-    - goconst
-    - nilerr
-    - gocyclo
-    - importas
+  default: all
+  disable:
+    - contextcheck
+    - cyclop
+    - depguard
+    - dupword
+    - err113
+    - exhaustruct
+    - forbidigo
+    - forcetypeassert
+    - funcorder
+    - funlen
+    - gochecknoglobals
+    - gomodguard
+    - inamedparam
+    - ireturn
+    - lll
+    - mnd
+    - musttag
+    - nilnil
+    - nlreturn
+    - noinlineerr
+    - nonamedreturns
+    - tagalign
+    - tagliatelle
+    - testpackage
+    - varnamelen
+    - wrapcheck
+    - wsl
+    - wsl_v5
 
   settings:
-    revive:
-      rules:
-        - name: exported
-          disabled: true
     errcheck:
       check-blank: false
+
+    godot:
+      scope: toplevel
+      period: true
+      capital: true
+
+    godox:
+      keywords:
+        - FIXME
+
+    gosec:
+      excludes:
+        - G304
+
     govet:
       enable-all: true
       disable:
         - fieldalignment
+
     goconst:
       match-constant: true
       min-len: 3
       min-occurrences: 2
+
     gocritic:
+      enable-all: true
       disabled-checks:
         - appendAssign
+        - hugeParam
+        - paramTypeCombine
+        - regexpSimplify
+
+    nlreturn:
+      block-size: 2
+
+    revive:
+      rules:
+        - name: exported
+          disabled: true
+
+    testifylint:
+      enable-all: true
+      disable:
+        - require-error
 
   exclusions:
     rules:
