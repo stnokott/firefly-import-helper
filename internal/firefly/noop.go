@@ -19,5 +19,5 @@ func (noopWriter) infof(s string, args ...any) {
 
 func (w noopWriter) CreateTransaction(_ context.Context, _ string, t domain.BankTransaction) (string, error) {
 	w.infof(`would create %s dated %s from %s`, string(t.Type), t.Date.Format(time.DateTime), *t.Merchant)
-	return "", nil
+	return "1234", nil
 }

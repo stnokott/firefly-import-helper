@@ -45,12 +45,8 @@ func NewBot(token string, fireflyBaseURL url.URL, telegramChatID string) (domain
 }
 
 func (b *Bot) Listen(ctx context.Context) {
-	_, err := b.t.SendMessage(ctx, &telebot.SendMessageParams{
-		ChatID: b.chatID,
-		Text:   "Firefly-III Import Helper started.",
-	})
-	if err != nil {
-		logger.ErrorV(fmt.Errorf("failed to send startup message: %w", err))
+	if err := b.send(ctx, "Firefly-III Import Helper started."); err != nil {
+		logger.ErrorV(err)
 	}
 	// intercept cancel of parent context and send stopped-message. Only then cancel actual context.
 	ctxBot, cancelBot := context.WithCancel(context.Background())
@@ -66,31 +62,23 @@ func (b *Bot) Listen(ctx context.Context) {
 }
 
 func (b *Bot) MsgImportStarted(ctx context.Context) error {
-	_, err := b.t.SendMessage(ctx, &telebot.SendMessageParams{
-		ChatID: b.chatID,
-		Text:   "Import starting...",
-	})
-	if err != nil {
-		return fmt.Errorf("could not send message: %w", err)
-	}
-
-	return nil
+	return b.send(ctx, "Import starting...")
 }
 
-func (b *Bot) MsgImportFinished(ctx context.Context, sum []domain.Summary) error {
-	msg, err := b.renderTmplSummary(sum)
-	if err != nil {
-		return err
-	}
-	_, err = b.t.SendMessage(ctx, &telebot.SendMessageParams{
+func (b *Bot) MsgImportFinished(ctx context.Context, sums []domain.Summary) error {
+	msg := drawImportFinished(sums)
+	return b.send(ctx, msg)
+}
+
+func (b *Bot) send(ctx context.Context, msg string) error {
+	_, err := b.t.SendMessage(ctx, &telebot.SendMessageParams{
 		ChatID:    b.chatID,
 		Text:      msg,
 		ParseMode: telemodels.ParseModeHTML,
 	})
 	if err != nil {
-		return fmt.Errorf("could not send message: %w", err)
+		return fmt.Errorf("failed to send message: %w", err)
 	}
-
 	return nil
 }
 

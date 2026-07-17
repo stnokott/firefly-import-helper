@@ -83,7 +83,7 @@ func run(env *config.Env, dryRun bool, disableNotifications bool) error {
 	}
 
 	messenger := telegram.NewNoop()
-	if !disableNotifications {
+	if !disableNotifications && !dryRun {
 		if messenger, err = telegram.NewBot(
 			env.TelegramBotToken, env.FireflyBaseURL.URL, env.TelegramChatID,
 		); err != nil {

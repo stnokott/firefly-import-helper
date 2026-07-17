@@ -85,7 +85,7 @@ func (a FireflyAccounts) Active() iter.Seq[FireflyAccount] {
 type Messenger interface {
 	Listen(ctx context.Context)
 	MsgImportStarted(ctx context.Context) error
-	MsgImportFinished(ctx context.Context, sum []Summary) error
+	MsgImportFinished(ctx context.Context, sums []Summary) error
 }
 
 type Summary struct {
