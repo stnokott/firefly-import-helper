@@ -30,7 +30,7 @@ func NewBot(token string, fireflyBaseURL url.URL, telegramChatID string) (domain
 		token,
 		telebot.WithCallbackQueryDataHandler(callbackDataPrefix, telebot.MatchTypePrefix, callbackHandlerCategory),
 		telebot.WithErrorsHandler(func(err error) {
-			logger.ErrorV(err)
+			logger.Errorv(err)
 		}),
 	)
 	if err != nil {
@@ -46,7 +46,7 @@ func NewBot(token string, fireflyBaseURL url.URL, telegramChatID string) (domain
 
 func (b *Bot) Listen(ctx context.Context) {
 	if err := b.send(ctx, "Firefly-III Import Helper started."); err != nil {
-		logger.ErrorV(err)
+		logger.Errorv(err)
 	}
 	// intercept cancel of parent context and send stopped-message. Only then cancel actual context.
 	ctxBot, cancelBot := context.WithCancel(context.Background())
@@ -65,8 +65,16 @@ func (b *Bot) MsgImportStarted(ctx context.Context) error {
 	return b.send(ctx, "Import starting...")
 }
 
+func (b *Bot) MsgNewTransaction(ctx context.Context, data *domain.TransactionCreated) error {
+	msg, err := renderNewTransaction(data)
+	if err != nil {
+		return fmt.Errorf("failed to send message: %w", err)
+	}
+	return b.send(ctx, msg)
+}
+
 func (b *Bot) MsgImportFinished(ctx context.Context, sums []domain.Summary) error {
-	msg := drawImportFinished(sums)
+	msg := renderImportFinished(sums)
 	return b.send(ctx, msg)
 }
 

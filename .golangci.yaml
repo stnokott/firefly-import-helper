@@ -38,6 +38,9 @@ linters:
     errcheck:
       check-blank: false
 
+    exhaustive:
+      explicit-exhaustive-switch: true
+
     godot:
       scope: toplevel
       period: true

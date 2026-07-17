@@ -96,6 +96,6 @@ func (l Logger) Errorf(format string, a ...any) {
 	l.Error(fmt.Sprintf(format, a...))
 }
 
-func (l Logger) ErrorV(err error) {
+func (l Logger) Errorv(err error) {
 	l.Error(err.Error())
 }

@@ -93,7 +93,7 @@ func (im *Importer) Import(ctx context.Context, dryRun bool) (err error) {
 		case acc.Status == domain.BankAccountStatusActive:
 			imported, err := im.importAccount(ctx, acc)
 			if err != nil {
-				logger.ErrorV(err)
+				logger.Errorv(err)
 				summary.Success = false
 				summary.Info = fmt.Sprintf("error occurred after %d imports: %s", imported, err.Error())
 			} else {
@@ -155,9 +155,12 @@ func (im *Importer) importAccount(ctx context.Context, acc domain.BankAccount) (
 }
 
 func (im *Importer) importTransaction(ctx context.Context, t domain.BankTransaction, fireflyAccountID string) (string, error) {
-	id, err := im.fireflyWrite.CreateTransaction(ctx, fireflyAccountID, t)
+	created, err := im.fireflyWrite.CreateTransaction(ctx, fireflyAccountID, t)
 	if err != nil {
 		return "", fmt.Errorf("failed to create Firefly transaction: %w", err)
 	}
-	return id, nil
+	if err := im.msg.MsgNewTransaction(ctx, created); err != nil {
+		logger.Errorv(err)
+	}
+	return created.FireflyID, nil
 }

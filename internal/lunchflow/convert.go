@@ -47,11 +47,11 @@ func boolOrFalse(b *bool) bool {
 	return *b
 }
 
-func determineTransactionType(t Transaction) domain.BankTransactionType {
+func determineTransactionType(t Transaction) domain.TransactionType {
 	if t.Amount < 0 {
-		return domain.BankTransactionTypeWithdrawal
+		return domain.TransactionTypeWithdrawal
 	}
-	return domain.BankTransactionTypeDeposit
+	return domain.TransactionTypeDeposit
 }
 
 func copyDateTime(t DateTime) time.Time {

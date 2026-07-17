@@ -20,7 +20,8 @@ import (
 var logger = log.For("firefly")
 
 type client struct {
-	api generated.ClientWithResponsesInterface
+	api     generated.ClientWithResponsesInterface
+	baseURL url.URL
 }
 
 type FireflyReadWriter interface {
@@ -44,7 +45,8 @@ func New(baseURL url.URL, token string) (FireflyReadWriter, error) {
 	}
 
 	return &client{
-		api: api,
+		api:     api,
+		baseURL: baseURL,
 	}, nil
 }
 
@@ -81,12 +83,12 @@ func (c *client) searchTransactionByExternalID(ctx context.Context, extID string
 	return &transactions[0], nil
 }
 
-func (c *client) CreateTransaction(ctx context.Context, accountID string, t domain.BankTransaction) (string, error) {
+func (c *client) CreateTransaction(ctx context.Context, accountID string, t domain.BankTransaction) (*domain.TransactionCreated, error) {
 	// validate we dont have the same external ID in Firefly already
 	if existingTransaction, err := c.searchTransactionByExternalID(ctx, t.ID); err != nil {
-		return "", fmt.Errorf("failed to search for transaction by external ID %s: %w", t.ID, err)
+		return nil, fmt.Errorf("failed to search for transaction by external ID %s: %w", t.ID, err)
 	} else if existingTransaction != nil {
-		return "", DuplicateTransactionError{
+		return nil, DuplicateTransactionError{
 			DuplicateOf:  existingTransaction.Id,
 			byExternalID: true,
 		}
@@ -97,15 +99,16 @@ func (c *client) CreateTransaction(ctx context.Context, accountID string, t doma
 		ApplyRules:           new(true),
 		ErrorIfDuplicateHash: new(true),
 		GroupTitle:           nullable.NewNullNullable[string](),
-		Transactions:         []generated.TransactionSplitStore{converted},
+		Transactions:         []generated.TransactionSplitStore{*converted},
 	})
 	if err != nil {
-		return "", fmt.Errorf("could not create transaction: %w", err)
+		return nil, fmt.Errorf("could not create transaction: %w", err)
 	}
 	if resp.StatusCode() != 200 {
-		return "", errFromResponse(resp.StatusCode(), resp.Body)
+		return nil, errFromResponse(resp.StatusCode(), resp.Body)
 	}
-	return resp.ApplicationvndApiJSON200.Data.Id, nil
+	created := ConvertTransactionRead(resp.ApplicationvndApiJSON200.Data, c.baseURL)
+	return created, nil
 }
 
 func paginatedRequest[V any](get func(page int32) (status int, body []byte, err error)) ([]V, error) {

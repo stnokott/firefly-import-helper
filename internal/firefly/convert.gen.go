@@ -24,18 +24,30 @@ func ConvertAccounts(source []generated.AccountRead) []domain.FireflyAccount {
 	}
 	return domainFireflyAccountList
 }
-func ConvertTransaction(source domain.BankTransaction, context string) generated.TransactionSplitStore {
+func ConvertTransaction(source domain.BankTransaction, context string) *generated.TransactionSplitStore {
 	generatedTransactionSplitStore := defaultTransactionSplitStore()
-	generatedTransactionSplitStore.Amount = generated.Amount(source.Amount)
-	generatedTransactionSplitStore.BookDate = nullableTime(source.Date)
-	generatedTransactionSplitStore.CurrencyCode = nullableString(source.Currency)
-	generatedTransactionSplitStore.Date = copyTime(source.Date)
-	generatedTransactionSplitStore.Description = source.Description
-	generatedTransactionSplitStore.DestinationId = getDestinationID(source, context)
-	generatedTransactionSplitStore.DestinationName = getDestinationName(source)
-	generatedTransactionSplitStore.ExternalId = nullableString(source.ID)
-	generatedTransactionSplitStore.SourceId = getSourceID(source, context)
-	generatedTransactionSplitStore.SourceName = getSourceName(source)
-	generatedTransactionSplitStore.Type = mapTransactionType(source.Type)
-	return generatedTransactionSplitStore
+	pGeneratedTransactionSplitStore := &generatedTransactionSplitStore
+	(*pGeneratedTransactionSplitStore).Amount = generated.Amount(source.Amount)
+	(*pGeneratedTransactionSplitStore).BookDate = nullableFromTime(source.Date)
+	(*pGeneratedTransactionSplitStore).CurrencyCode = nullableFromString(source.Currency)
+	(*pGeneratedTransactionSplitStore).Date = copyTime(source.Date)
+	(*pGeneratedTransactionSplitStore).Description = source.Description
+	(*pGeneratedTransactionSplitStore).DestinationId = getDestinationID(source, context)
+	(*pGeneratedTransactionSplitStore).DestinationName = getDestinationName(source)
+	(*pGeneratedTransactionSplitStore).ExternalId = nullableFromString(source.ID)
+	(*pGeneratedTransactionSplitStore).SourceId = getSourceID(source, context)
+	(*pGeneratedTransactionSplitStore).SourceName = getSourceName(source)
+	(*pGeneratedTransactionSplitStore).Type = mapDomainTransactionType(source.Type)
+	return pGeneratedTransactionSplitStore
+}
+func ConvertTransactionSplit(source generated.TransactionSplit) *domain.TransactionCreated {
+	var domainTransactionCreated domain.TransactionCreated
+	domainTransactionCreated.Type = mapGeneratedTransactionType(source.Type)
+	domainTransactionCreated.AccountName = getAccountName(source)
+	domainTransactionCreated.MerchantName = getMerchantName(source)
+	domainTransactionCreated.Amount = float64(source.Amount)
+	domainTransactionCreated.CurrencySymbol = currencySymbolOrDefault(source.CurrencySymbol)
+	domainTransactionCreated.Date = copyTime(source.Date)
+	domainTransactionCreated.Description = source.Description
+	return &domainTransactionCreated
 }

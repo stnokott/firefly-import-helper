@@ -1,6 +1,7 @@
 package firefly
 
 import (
+	"net/url"
 	"time"
 
 	"github.com/oapi-codegen/nullable"
@@ -20,8 +21,8 @@ const (
 //goverter:output:format function
 //goverter:output:file convert.gen.go
 //goverter:output:package github.com/stnokott/firefly-import-helper/internal/firefly
-//goverter:extend copyTime nullableTime nullableString
-//goverter:extend mapTransactionType
+//goverter:extend copyTime nullableFromTime nullableFromString
+//goverter:extend mapDomainTransactionType mapGeneratedTransactionType
 type Converter interface {
 	ConvertAccounts([]generated.AccountRead) []domain.FireflyAccount
 	//goverter:map Id ID
@@ -43,7 +44,20 @@ type Converter interface {
 	//goverter:map ID ExternalId
 	//goverter:map . SourceId | getSourceID
 	//goverter:map . SourceName | getSourceName
-	ConvertTransaction(t domain.BankTransaction, ffAccountID string) generated.TransactionSplitStore
+	ConvertTransaction(t domain.BankTransaction, ffAccountID string) *generated.TransactionSplitStore
+
+	//goverter:ignore FireflyID FireflyURL
+	//goverter:map . AccountName | getAccountName
+	//goverter:map . MerchantName | getMerchantName
+	//goverter:map CurrencySymbol CurrencySymbol | currencySymbolOrDefault
+	ConvertTransactionSplit(t generated.TransactionSplit) *domain.TransactionCreated
+}
+
+func ConvertTransactionRead(in generated.TransactionRead, fireflyBaseURL url.URL) *domain.TransactionCreated {
+	converted := ConvertTransactionSplit(in.Attributes.Transactions[0])
+	converted.FireflyID = in.Id
+	converted.FireflyURL = fireflyBaseURL.JoinPath("/transactions/show/", in.Id).String()
+	return converted
 }
 
 func boolOrTrue(b *bool) bool {
@@ -57,12 +71,20 @@ func copyTime(t time.Time) time.Time {
 	return t
 }
 
-func nullableTime(t time.Time) nullable.Nullable[time.Time] {
+func nullableFromTime(t time.Time) nullable.Nullable[time.Time] {
 	return nullable.NewNullableWithValue(t)
 }
 
-func nullableString(s string) nullable.Nullable[string] {
+func nullableFromString(s string) nullable.Nullable[string] {
 	return nullable.NewNullableWithValue(s)
+}
+
+func nullableOrDefault[T any](v nullable.Nullable[T], def T) T {
+	if v.IsNull() {
+		return def
+	}
+	vActual, _ := v.Get()
+	return vActual
 }
 
 func defaultTransactionSplitStore() generated.TransactionSplitStore {
@@ -75,7 +97,7 @@ func defaultTransactionSplitStore() generated.TransactionSplitStore {
 
 //goverter:context ffAccountID
 func getSourceID(t domain.BankTransaction, ffAccountID string) nullable.Nullable[string] {
-	if t.Type != domain.BankTransactionTypeWithdrawal {
+	if t.Type != domain.TransactionTypeWithdrawal {
 		// the source is not our FF account, so we need to go by name instead of ID. So we let getSourceName handle that.
 		return nullable.NewNullNullable[string]()
 	}
@@ -83,7 +105,7 @@ func getSourceID(t domain.BankTransaction, ffAccountID string) nullable.Nullable
 }
 
 func getSourceName(t domain.BankTransaction) nullable.Nullable[string] {
-	if t.Type != domain.BankTransactionTypeDeposit {
+	if t.Type != domain.TransactionTypeDeposit {
 		// our current FF account is the source. We only have its ID (not the name), so we let getSourceID handle that.
 		return nullable.NewNullNullable[string]()
 	}
@@ -96,7 +118,7 @@ func getSourceName(t domain.BankTransaction) nullable.Nullable[string] {
 
 //goverter:context ffAccountID
 func getDestinationID(t domain.BankTransaction, ffAccountID string) nullable.Nullable[string] {
-	if t.Type != domain.BankTransactionTypeDeposit {
+	if t.Type != domain.TransactionTypeDeposit {
 		// the destination is not our FF account, so we need to go by name instead of ID. So we let getDestinationName handle that.
 		return nullable.NewNullNullable[string]()
 	}
@@ -104,7 +126,7 @@ func getDestinationID(t domain.BankTransaction, ffAccountID string) nullable.Nul
 }
 
 func getDestinationName(t domain.BankTransaction) nullable.Nullable[string] {
-	if t.Type != domain.BankTransactionTypeWithdrawal {
+	if t.Type != domain.TransactionTypeWithdrawal {
 		// our current FF account is the destination. We only have its ID (not the name), so we let getDestinationID handle that.
 		return nullable.NewNullNullable[string]()
 	}
@@ -116,13 +138,51 @@ func getDestinationName(t domain.BankTransaction) nullable.Nullable[string] {
 	return nullable.NewNullableWithValue(*t.Merchant)
 }
 
-func mapTransactionType(in domain.BankTransactionType) generated.TransactionTypeProperty {
+func mapDomainTransactionType(in domain.TransactionType) generated.TransactionTypeProperty {
 	switch in {
-	case domain.BankTransactionTypeDeposit:
+	case domain.TransactionTypeDeposit:
 		return generated.Deposit
-	case domain.BankTransactionTypeWithdrawal:
+	case domain.TransactionTypeWithdrawal:
 		return generated.Withdrawal
 	default:
-		panic("unmapped bank transaction type " + string(in))
+		panic("unmapped domain transaction type " + string(in))
 	}
+}
+
+func mapGeneratedTransactionType(in generated.TransactionTypeProperty) domain.TransactionType {
+	switch in {
+	case generated.Deposit:
+		return domain.TransactionTypeDeposit
+	case generated.Withdrawal:
+		return domain.TransactionTypeWithdrawal
+	default:
+		panic("unmapped generated transaction type " + string(in))
+	}
+}
+
+func getAccountName(in generated.TransactionSplit) string {
+	var v nullable.Nullable[string]
+	if in.Type == generated.Deposit {
+		v = in.DestinationName
+	} else {
+		v = in.SourceName
+	}
+	return nullableOrDefault(v, "unknown")
+}
+
+func getMerchantName(in generated.TransactionSplit) string {
+	var v nullable.Nullable[string]
+	if in.Type == generated.Deposit {
+		v = in.SourceName
+	} else {
+		v = in.DestinationName
+	}
+	return nullableOrDefault(v, "unknown")
+}
+
+func currencySymbolOrDefault(cc *string) string {
+	if cc != nil {
+		return *cc
+	}
+	return "?"
 }

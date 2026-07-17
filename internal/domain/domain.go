@@ -39,7 +39,7 @@ const (
 type BankTransaction struct {
 	ID          string
 	IsPending   bool
-	Type        BankTransactionType
+	Type        TransactionType
 	AccountID   int
 	Amount      float64
 	Currency    string
@@ -48,11 +48,11 @@ type BankTransaction struct {
 	Merchant    *string
 }
 
-type BankTransactionType string
+type TransactionType string
 
 const (
-	BankTransactionTypeWithdrawal BankTransactionType = "WITHDRAWAL"
-	BankTransactionTypeDeposit    BankTransactionType = "DEPOSIT"
+	TransactionTypeWithdrawal TransactionType = "WITHDRAWAL"
+	TransactionTypeDeposit    TransactionType = "DEPOSIT"
 )
 
 type FireflyReader interface {
@@ -60,7 +60,7 @@ type FireflyReader interface {
 }
 
 type FireflyWriter interface {
-	CreateTransaction(ctx context.Context, accountID string, t BankTransaction) (string, error)
+	CreateTransaction(ctx context.Context, accountID string, t BankTransaction) (*TransactionCreated, error)
 }
 
 type FireflyAccount struct {
@@ -81,10 +81,11 @@ func (a FireflyAccounts) Active() iter.Seq[FireflyAccount] {
 	}
 }
 
-// Messenger handles communication between user and this program.
+// Messenger handles communication between the user and this program.
 type Messenger interface {
 	Listen(ctx context.Context)
 	MsgImportStarted(ctx context.Context) error
+	MsgNewTransaction(ctx context.Context, data *TransactionCreated) error
 	MsgImportFinished(ctx context.Context, sums []Summary) error
 }
 
@@ -93,4 +94,16 @@ type Summary struct {
 	Institution string
 	Success     bool
 	Info        string
+}
+
+type TransactionCreated struct {
+	Type           TransactionType
+	AccountName    string
+	MerchantName   string
+	Amount         float64
+	CurrencySymbol string
+	Date           time.Time
+	Description    string
+	FireflyID      string
+	FireflyURL     string
 }
