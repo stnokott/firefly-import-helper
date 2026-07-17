@@ -32,9 +32,9 @@ var tmplNewTransaction = template.Must(template.New("tmplNewTransaction").Funcs(
 ).Parse(
 	`✨ <b>New Transaction <a href="{{.FireflyURL}}">#{{.FireflyID}}</a></b> ✨
 
-<b>{{.AccountName}} {{.Type | formatTransactionType}}{{.Amount | formatAmount}}{{.CurrencySymbol}}{{.Type | formatTransactionType}} {{.MerchantName}}</b>
+<b>{{.AccountName}}</b> {{.Type | formatTransactionType}}{{.Amount | formatAmount}}{{.CurrencySymbol}}{{.Type | formatTransactionType}} <b>{{.MerchantName}}</b>
 
-<b>Description:</b> {{.Description}}
+<b>Description:</b> <tg-spoiler>{{.Description}}</tg-spoiler>
 <b>Occurred:</b> <tg-time unix="{{.Date | timeUnix}}" format="r">{{.Date | formatTime}}</tg-time>
 `,
 ))

@@ -26,9 +26,9 @@ func TestRenderNewTransaction(t *testing.T) {
 
 	want := `✨ <b>New Transaction <a href="https://my.firefly.instance.com/transactions/5566">#5566</a></b> ✨
 
-<b>My Account A →12.35€→ Pirates</b>
+<b>My Account A</b> →12.35€→ <b>Pirates</b>
 
-<b>Description:</b> Gold tax!
+<b>Description:</b> <tg-spoiler>Gold tax!</tg-spoiler>
 <b>Occurred:</b> <tg-time unix="1767229261" format="r">2026-01-01 01:01:01</tg-time>
 `
 
