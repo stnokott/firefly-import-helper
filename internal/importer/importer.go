@@ -71,7 +71,7 @@ func (im *Importer) Import(ctx context.Context, dryRun bool) (err error) {
 		return err
 	}
 
-	sum := make([]domain.Summary, len(accounts))
+	sums := make([]domain.Summary, 0, len(accounts))
 	for i, acc := range accounts {
 		logger.Infof("importing %d/%d: %s @ %s", i+1, len(accounts), acc.Name, acc.Institution)
 		summary := domain.Summary{
@@ -81,8 +81,7 @@ func (im *Importer) Import(ctx context.Context, dryRun bool) (err error) {
 		switch {
 		case im.cfg.AccountsByBankID[acc.ID].Ignore:
 			logger.Info("  account ignored - skipping")
-			summary.Success = true
-			summary.Info = "Ignored via config"
+			continue
 		case acc.Status == domain.BankAccountStatusDisconnected:
 			logger.Info("  account disconnected - skipping")
 			summary.Success = false
@@ -104,11 +103,11 @@ func (im *Importer) Import(ctx context.Context, dryRun bool) (err error) {
 			}
 		}
 
-		sum[i] = summary
+		sums = append(sums, summary)
 	}
 
 	im.lastRun = time.Now()
-	return im.msg.MsgImportFinished(ctx, sum)
+	return im.msg.MsgImportFinished(ctx, sums)
 }
 
 // nextImportRange returns the timeframe for the next import using from and to times.
