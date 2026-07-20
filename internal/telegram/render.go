@@ -11,10 +11,9 @@ import (
 )
 
 var tmplAccountProblem = template.Must(template.New("tmplAccountProblem").Parse(
-	`❓ <b>Problem with account</b> ❓
-
-<b>Foo (Bar)</b>
-Reauthorization required.
+	`<h3>Problem with account</h3>
+<hr/>
+<b>{{.Account.Name}}</b> ({{.Account.Institution}}): {{.Problem}}
 `,
 ))
 
@@ -35,17 +34,26 @@ var tmplNewTransaction = template.Must(template.New("tmplNewTransaction").Funcs(
 		},
 		"formatTransactionType": func(typ domain.TransactionType) string {
 			if typ == domain.TransactionTypeDeposit {
+				return "Deposit ⤵️"
+			}
+			return "Withdrawal ⤴️"
+		},
+		"transactionTypeArrow": func(typ domain.TransactionType) string {
+			if typ == domain.TransactionTypeDeposit {
 				return "←"
 			}
 			return "→"
 		},
 	},
 ).Parse(
-	`✨ <b>New Transaction <a href="{{.FireflyURL}}">#{{.FireflyID}}</a></b> ✨
-
-<b>{{.AccountName}}</b> {{.Type | formatTransactionType}}{{.Amount | formatAmount}}{{.CurrencySymbol}}{{.Type | formatTransactionType}} <b>{{.MerchantName}}</b>
-
+	`<h3>✨ New Transaction <a href="{{.FireflyURL}}">#{{.FireflyID}}</a> ✨</h3>
+<hr/>
+<b>{{.AccountName}}</b> {{.Type | transactionTypeArrow}}{{.Amount | formatAmount}}{{.CurrencySymbol}}{{.Type | transactionTypeArrow}} <tg-spoiler><b>{{.MerchantName}}</b></tg-spoiler>
+<hr/>
+<b>Type:</b> {{.Type | formatTransactionType}}
+<br/>
 <b>Description:</b> <tg-spoiler>{{.Description}}</tg-spoiler>
+<br/>
 <b>Occurred:</b> <tg-time unix="{{.Date | timeUnix}}" format="r">{{.Date | formatTime}}</tg-time>
 `,
 ))

@@ -140,7 +140,6 @@ func (im *Importer) importAccount(ctx context.Context, acc domain.BankAccount, f
 			// duplicate transactions are acceptable - continue
 			if errDuplicate, isDuplicate := errors.AsType[firefly.DuplicateTransactionError](err); isDuplicate {
 				logger.Infof("%03d/%03d - duplicate transaction #%s ignored", i+1, len(transactions), errDuplicate.DuplicateOf)
-				// TODO: send message
 				continue
 			}
 			return created, fmt.Errorf("failed to import transaction: %w", err)

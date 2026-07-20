@@ -14,7 +14,6 @@ func ConvertAccount(source generated.AccountRead) domain.FireflyAccount {
 	domainFireflyAccount.Active = boolOrTrue(source.Attributes.Active)
 	return domainFireflyAccount
 }
-
 func ConvertAccounts(source []generated.AccountRead) []domain.FireflyAccount {
 	var domainFireflyAccountList []domain.FireflyAccount
 	if source != nil {
@@ -25,7 +24,6 @@ func ConvertAccounts(source []generated.AccountRead) []domain.FireflyAccount {
 	}
 	return domainFireflyAccountList
 }
-
 func ConvertTransaction(source domain.BankTransaction, context string) *generated.TransactionSplitStore {
 	generatedTransactionSplitStore := defaultTransactionSplitStore()
 	pGeneratedTransactionSplitStore := &generatedTransactionSplitStore
@@ -42,16 +40,15 @@ func ConvertTransaction(source domain.BankTransaction, context string) *generate
 	(*pGeneratedTransactionSplitStore).Type = mapDomainTransactionType(source.Type)
 	return pGeneratedTransactionSplitStore
 }
-
 func ConvertTransactionSplit(source generated.TransactionSplit) *domain.TransactionRead {
-	var domainTransactionCreated domain.TransactionRead
-	domainTransactionCreated.Type = mapGeneratedTransactionType(source.Type)
-	domainTransactionCreated.AccountName = getAccountName(source)
-	domainTransactionCreated.MerchantName = getMerchantName(source)
-	domainTransactionCreated.Amount = float64(source.Amount)
-	domainTransactionCreated.CurrencySymbol = currencySymbolOrDefault(source.CurrencySymbol)
-	domainTransactionCreated.Date = copyTime(source.Date)
-	domainTransactionCreated.Description = source.Description
-	domainTransactionCreated.Category = stringOrEmpty(source.CategoryName)
-	return &domainTransactionCreated
+	var domainTransactionRead domain.TransactionRead
+	domainTransactionRead.Type = mapGeneratedTransactionType(source.Type)
+	domainTransactionRead.AccountName = getAccountName(source)
+	domainTransactionRead.MerchantName = getMerchantName(source)
+	domainTransactionRead.Amount = float64(source.Amount)
+	domainTransactionRead.CurrencySymbol = currencySymbolOrDefault(source.CurrencySymbol)
+	domainTransactionRead.Date = copyTime(source.Date)
+	domainTransactionRead.Description = source.Description
+	domainTransactionRead.Category = stringOrEmpty(source.CategoryName)
+	return &domainTransactionRead
 }

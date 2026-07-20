@@ -88,29 +88,30 @@ func (b *bot) MsgNewTransaction(ctx context.Context, data *domain.TransactionRea
 	return b.send(ctx, msg, withCategoriesKeyboard(data.FireflyID, ffCategories, data.Category))
 }
 
-func (b *bot) send(ctx context.Context, msg string, opts ...sendOption) error {
-	params := &telebot.SendMessageParams{
-		ChatID:    b.chatID,
-		Text:      msg,
-		ParseMode: telemodels.ParseModeHTML,
+func (b *bot) send(ctx context.Context, html string, opts ...sendOption) error {
+	params := &telebot.SendRichMessageParams{
+		ChatID: b.chatID,
+		RichMessage: telemodels.InputRichMessage{
+			HTML: html,
+		},
 	}
 	for _, opt := range opts {
 		opt(params)
 	}
 
-	_, err := b.t.SendMessage(ctx, params)
+	_, err := b.t.SendRichMessage(ctx, params)
 	if err != nil {
 		return fmt.Errorf("failed to send message: %w", err)
 	}
 	return nil
 }
 
-type sendOption func(params *telebot.SendMessageParams)
+type sendOption func(params *telebot.SendRichMessageParams)
 
 func withCategoriesKeyboard(transactionID string, categories []string, selectedCategory string) sendOption {
-	return func(sendParams *telebot.SendMessageParams) {
+	return func(params *telebot.SendRichMessageParams) {
 		inlineMarkup := buildInlineCategoryKeyboard(transactionID, categories, selectedCategory)
-		sendParams.ReplyMarkup = inlineMarkup
+		params.ReplyMarkup = inlineMarkup
 	}
 }
 
@@ -125,7 +126,7 @@ func decodeCategoryCallbackData(data string) (transactionID, category string) {
 
 const (
 	buttonsPerRow       = 3
-	buttonStyleSelected = "green"
+	buttonStyleSelected = "success"
 )
 
 func buildInlineCategoryKeyboard(transactionID string, categories []string, selectedCategory string) telemodels.InlineKeyboardMarkup {

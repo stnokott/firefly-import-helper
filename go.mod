@@ -3,7 +3,7 @@ module github.com/stnokott/firefly-import-helper
 go 1.26
 
 require (
-	github.com/go-telegram/bot v1.21.0
+	github.com/go-telegram/bot v1.22.0
 	github.com/goccy/go-yaml v1.19.2
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/oapi-codegen/nullable v1.1.0
