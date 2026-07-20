@@ -92,7 +92,6 @@ func (a FireflyAccounts) Active() iter.Seq[FireflyAccount] {
 type Messenger interface {
 	Listen(ctx context.Context)
 	MsgAccountProblem(ctx context.Context, problem AccountProblem) error
-	MsgImportStarted(ctx context.Context) error
 	MsgNewTransaction(ctx context.Context, data *TransactionRead, ffCategories []string) error
 }
 

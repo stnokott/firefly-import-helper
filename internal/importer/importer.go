@@ -60,9 +60,6 @@ func (im *Importer) Import(ctx context.Context, dryRun bool) (err error) {
 			logger.Info("import finished")
 		}
 	}()
-	if err := im.msg.MsgImportStarted(ctx); err != nil {
-		return err
-	}
 
 	// Firefly categories required later for Messenger interactions
 	ffCategories, err := im.firefly.ListCategories(ctx)

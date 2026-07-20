@@ -76,10 +76,6 @@ func (b *bot) MsgAccountProblem(ctx context.Context, problem domain.AccountProbl
 	return b.send(ctx, msg)
 }
 
-func (b *bot) MsgImportStarted(ctx context.Context) error {
-	return b.send(ctx, "Import starting...")
-}
-
 func (b *bot) MsgNewTransaction(ctx context.Context, data *domain.TransactionRead, ffCategories []string) error {
 	msg, err := renderNewTransaction(data)
 	if err != nil {
