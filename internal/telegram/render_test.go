@@ -36,3 +36,27 @@ func TestRenderNewTransaction(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, want, got)
 }
+
+func TestRenderAccountProblem(t *testing.T) {
+	t.Parallel()
+
+	data := domain.AccountProblem{
+		Account: &domain.BankAccount{
+			ID:          123,
+			Name:        "Foo",
+			Institution: "Bar",
+			Currency:    "€",
+			Status:      domain.BankAccountStatusDisconnected,
+		},
+		Problem: "Reauthorization required.",
+	}
+
+	want := `❓ <b>Problem with account</b> ❓
+
+<b>Foo (Bar)</b>
+Reauthorization required.
+`
+	got, err := renderAccountProblem(data)
+	require.NoError(t, err)
+	assert.Equal(t, want, got)
+}

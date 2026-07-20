@@ -15,13 +15,13 @@ import (
 
 var logger = log.For("telegram")
 
-type Bot struct {
+type bot struct {
 	t              *telebot.Bot
 	fireflyBaseURL url.URL
 	chatID         string
 }
 
-var _ domain.Messenger = (*Bot)(nil)
+var _ domain.Messenger = (*bot)(nil)
 
 const callbackDataPrefix = "category:"
 
@@ -37,14 +37,14 @@ func NewBot(token string, fireflyBaseURL url.URL, telegramChatID string) (domain
 		return nil, fmt.Errorf("could not create telegram bot: %w", err)
 	}
 
-	return &Bot{
+	return &bot{
 		t:              t,
 		fireflyBaseURL: fireflyBaseURL,
 		chatID:         telegramChatID,
 	}, nil
 }
 
-func (b *Bot) Listen(ctx context.Context) {
+func (b *bot) Listen(ctx context.Context) {
 	if err := b.send(ctx, "Firefly-III Import Helper started."); err != nil {
 		logger.Errorv(err)
 	}
@@ -61,11 +61,19 @@ func (b *Bot) Listen(ctx context.Context) {
 	b.t.Start(ctxBot)
 }
 
-func (b *Bot) MsgImportStarted(ctx context.Context) error {
+func (b *bot) MsgAccountProblem(ctx context.Context, problem domain.AccountProblem) error {
+	msg, err := renderAccountProblem(problem)
+	if err != nil {
+		return fmt.Errorf("failed to send message: %w", err)
+	}
+	return b.send(ctx, msg)
+}
+
+func (b *bot) MsgImportStarted(ctx context.Context) error {
 	return b.send(ctx, "Import starting...")
 }
 
-func (b *Bot) MsgNewTransaction(ctx context.Context, data *domain.TransactionCreated) error {
+func (b *bot) MsgNewTransaction(ctx context.Context, data *domain.TransactionCreated) error {
 	msg, err := renderNewTransaction(data)
 	if err != nil {
 		return fmt.Errorf("failed to send message: %w", err)
@@ -73,7 +81,7 @@ func (b *Bot) MsgNewTransaction(ctx context.Context, data *domain.TransactionCre
 	return b.send(ctx, msg)
 }
 
-func (b *Bot) send(ctx context.Context, msg string) error {
+func (b *bot) send(ctx context.Context, msg string) error {
 	_, err := b.t.SendMessage(ctx, &telebot.SendMessageParams{
 		ChatID:    b.chatID,
 		Text:      msg,

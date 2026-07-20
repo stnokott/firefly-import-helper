@@ -84,6 +84,7 @@ func (a FireflyAccounts) Active() iter.Seq[FireflyAccount] {
 // Messenger handles communication between the user and this program.
 type Messenger interface {
 	Listen(ctx context.Context)
+	MsgAccountProblem(ctx context.Context, problem AccountProblem) error
 	MsgImportStarted(ctx context.Context) error
 	MsgNewTransaction(ctx context.Context, data *TransactionCreated) error
 }
@@ -98,4 +99,9 @@ type TransactionCreated struct {
 	Description    string
 	FireflyID      string
 	FireflyURL     string
+}
+
+type AccountProblem struct {
+	Account *BankAccount
+	Problem string
 }

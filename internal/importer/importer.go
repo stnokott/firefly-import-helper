@@ -79,8 +79,16 @@ func (im *Importer) Import(ctx context.Context, dryRun bool) (err error) {
 			continue
 		case acc.Status == domain.BankAccountStatusDisconnected:
 			logger.Info("  account disconnected - skipping")
+			_ = im.msg.MsgAccountProblem(ctx, domain.AccountProblem{
+				Account: &acc,
+				Problem: "Reauthorization required.",
+			})
 		case acc.Status == domain.BankAccountStatusError:
 			logger.Info("  account erroneous - skipping")
+			_ = im.msg.MsgAccountProblem(ctx, domain.AccountProblem{
+				Account: &acc,
+				Problem: "Internal data provider error.",
+			})
 		case acc.Status == domain.BankAccountStatusActive:
 			imported, err := im.importAccount(ctx, acc)
 			if err != nil {

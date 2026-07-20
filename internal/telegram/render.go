@@ -10,6 +10,18 @@ import (
 	"github.com/stnokott/firefly-import-helper/internal/domain"
 )
 
+var tmplAccountProblem = template.Must(template.New("tmplAccountProblem").Parse(
+	`❓ <b>Problem with account</b> ❓
+
+<b>{{.Account.Name}} ({{.Account.Institution}})</b>
+{{.Problem}}
+`,
+))
+
+func renderAccountProblem(data domain.AccountProblem) (string, error) {
+	return renderTemplate(tmplAccountProblem, data)
+}
+
 var tmplNewTransaction = template.Must(template.New("tmplNewTransaction").Funcs(
 	template.FuncMap{
 		"formatTime": func(t time.Time) string {
@@ -39,8 +51,12 @@ var tmplNewTransaction = template.Must(template.New("tmplNewTransaction").Funcs(
 ))
 
 func renderNewTransaction(data *domain.TransactionCreated) (string, error) {
+	return renderTemplate(tmplNewTransaction, data)
+}
+
+func renderTemplate(t *template.Template, data any) (string, error) {
 	buf := new(bytes.Buffer)
-	if err := tmplNewTransaction.Execute(buf, data); err != nil {
+	if err := t.Execute(buf, data); err != nil {
 		return "", fmt.Errorf("failed to render template: %w", err)
 	}
 	return buf.String(), nil
