@@ -26,6 +26,7 @@ const (
 )
 
 func main() {
+	verbose := flag.Bool("verbose", false, "more logging")
 	doInit := flag.Bool("init", false, "when set, will bootstrap a config file and then exit")
 	doDryRun := flag.Bool("dry-run", false, "when set, will not modify any Firefly data")
 	noNotify := flag.Bool("no-notify", false, "when set, will disable any outward messenger communication")
@@ -39,7 +40,7 @@ func main() {
 	}
 
 	logLevel := log.Info
-	if strings.ToLower(os.Getenv("DEBUG")) == "true" {
+	if *verbose || strings.ToLower(os.Getenv("DEBUG")) == "true" {
 		logLevel = log.Debug
 	}
 	log.SetDefaultLevel(logLevel)
