@@ -86,14 +86,6 @@ type Messenger interface {
 	Listen(ctx context.Context)
 	MsgImportStarted(ctx context.Context) error
 	MsgNewTransaction(ctx context.Context, data *TransactionCreated) error
-	MsgImportFinished(ctx context.Context, sums []Summary) error
-}
-
-type Summary struct {
-	Account     string
-	Institution string
-	Success     bool
-	Info        string
 }
 
 type TransactionCreated struct {

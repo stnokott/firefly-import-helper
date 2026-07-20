@@ -23,7 +23,3 @@ func (noop) MsgImportStarted(_ context.Context) error {
 func (noop) MsgNewTransaction(_ context.Context, _ *domain.TransactionCreated) error {
 	return nil
 }
-
-func (noop) MsgImportFinished(_ context.Context, _ []domain.Summary) error {
-	return nil
-}

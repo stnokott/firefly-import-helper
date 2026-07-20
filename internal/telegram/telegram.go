@@ -73,11 +73,6 @@ func (b *Bot) MsgNewTransaction(ctx context.Context, data *domain.TransactionCre
 	return b.send(ctx, msg)
 }
 
-func (b *Bot) MsgImportFinished(ctx context.Context, sums []domain.Summary) error {
-	msg := renderImportFinished(sums)
-	return b.send(ctx, msg)
-}
-
 func (b *Bot) send(ctx context.Context, msg string) error {
 	_, err := b.t.SendMessage(ctx, &telebot.SendMessageParams{
 		ChatID:    b.chatID,

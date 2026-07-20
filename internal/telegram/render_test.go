@@ -36,26 +36,3 @@ func TestRenderNewTransaction(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, want, got)
 }
-
-func TestRenderHTMLTable(t *testing.T) {
-	t.Parallel()
-
-	headers := []string{"ColA", "ColBB", "ColCCC"}
-	rows := [][]string{
-		{"foo", "bar", "foobar"},
-		{"fuzz", "buzz", "long value here"},
-		{"long value here", "a", "b"},
-	}
-
-	want := `<pre>+-----------------+-------+-----------------+
-| ColA            | ColBB | ColCCC          |
-+-----------------+-------+-----------------+
-| foo             | bar   | foobar          |
-| fuzz            | buzz  | long value here |
-| long value here | a     | b               |
-+-----------------+-------+-----------------+
-</pre>
-`
-	got := renderHTMLTable(headers, rows)
-	assert.Equal(t, want, got)
-}
