@@ -4,6 +4,7 @@ output: generated/firefly.gen.go
 output-options:
   include-tags:
     - accounts
+    - categories
     - search
     - transactions
   nullable-type: true

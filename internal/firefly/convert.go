@@ -49,11 +49,12 @@ type Converter interface {
 	//goverter:ignore FireflyID FireflyURL
 	//goverter:map . AccountName | getAccountName
 	//goverter:map . MerchantName | getMerchantName
+	//goverter:map CategoryName Category | stringOrEmpty
 	//goverter:map CurrencySymbol CurrencySymbol | currencySymbolOrDefault
-	ConvertTransactionSplit(t generated.TransactionSplit) *domain.TransactionCreated
+	ConvertTransactionSplit(t generated.TransactionSplit) *domain.TransactionRead
 }
 
-func ConvertTransactionRead(in generated.TransactionRead, fireflyBaseURL url.URL) *domain.TransactionCreated {
+func ConvertTransactionRead(in *generated.TransactionRead, fireflyBaseURL url.URL) *domain.TransactionRead {
 	converted := ConvertTransactionSplit(in.Attributes.Transactions[0])
 	converted.FireflyID = in.Id
 	converted.FireflyURL = fireflyBaseURL.JoinPath("/transactions/show/", in.Id).String()
@@ -77,6 +78,13 @@ func nullableFromTime(t time.Time) nullable.Nullable[time.Time] {
 
 func nullableFromString(s string) nullable.Nullable[string] {
 	return nullable.NewNullableWithValue(s)
+}
+
+func stringOrEmpty(s nullable.Nullable[string]) string {
+	if s.IsNull() {
+		return ""
+	}
+	return s.MustGet()
 }
 
 func nullableOrDefault[T any](v nullable.Nullable[T], def T) T {

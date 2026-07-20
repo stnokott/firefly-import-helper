@@ -110,7 +110,7 @@ func (c *Client) listAccounts(ctx context.Context) (*Accounts, error) {
 	if err != nil {
 		return nil, err
 	}
-	return parseResponse[Accounts](resp, 200)
+	return parseResponse[Accounts](resp, http.StatusOK)
 }
 
 func (c *Client) getAccountBalance(ctx context.Context, id int) (*Balance, error) {
@@ -119,7 +119,7 @@ func (c *Client) getAccountBalance(ctx context.Context, id int) (*Balance, error
 	if err != nil {
 		return nil, err
 	}
-	return parseResponse[Balance](resp, 200)
+	return parseResponse[Balance](resp, http.StatusOK)
 }
 
 func (c *Client) get(ctx context.Context, u string) (*http.Response, error) {

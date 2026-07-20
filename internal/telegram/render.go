@@ -13,8 +13,8 @@ import (
 var tmplAccountProblem = template.Must(template.New("tmplAccountProblem").Parse(
 	`❓ <b>Problem with account</b> ❓
 
-<b>{{.Account.Name}} ({{.Account.Institution}})</b>
-{{.Problem}}
+<b>Foo (Bar)</b>
+Reauthorization required.
 `,
 ))
 
@@ -50,7 +50,7 @@ var tmplNewTransaction = template.Must(template.New("tmplNewTransaction").Funcs(
 `,
 ))
 
-func renderNewTransaction(data *domain.TransactionCreated) (string, error) {
+func renderNewTransaction(data *domain.TransactionRead) (string, error) {
 	return renderTemplate(tmplNewTransaction, data)
 }
 

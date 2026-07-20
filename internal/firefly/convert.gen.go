@@ -14,6 +14,7 @@ func ConvertAccount(source generated.AccountRead) domain.FireflyAccount {
 	domainFireflyAccount.Active = boolOrTrue(source.Attributes.Active)
 	return domainFireflyAccount
 }
+
 func ConvertAccounts(source []generated.AccountRead) []domain.FireflyAccount {
 	var domainFireflyAccountList []domain.FireflyAccount
 	if source != nil {
@@ -24,6 +25,7 @@ func ConvertAccounts(source []generated.AccountRead) []domain.FireflyAccount {
 	}
 	return domainFireflyAccountList
 }
+
 func ConvertTransaction(source domain.BankTransaction, context string) *generated.TransactionSplitStore {
 	generatedTransactionSplitStore := defaultTransactionSplitStore()
 	pGeneratedTransactionSplitStore := &generatedTransactionSplitStore
@@ -40,8 +42,9 @@ func ConvertTransaction(source domain.BankTransaction, context string) *generate
 	(*pGeneratedTransactionSplitStore).Type = mapDomainTransactionType(source.Type)
 	return pGeneratedTransactionSplitStore
 }
-func ConvertTransactionSplit(source generated.TransactionSplit) *domain.TransactionCreated {
-	var domainTransactionCreated domain.TransactionCreated
+
+func ConvertTransactionSplit(source generated.TransactionSplit) *domain.TransactionRead {
+	var domainTransactionCreated domain.TransactionRead
 	domainTransactionCreated.Type = mapGeneratedTransactionType(source.Type)
 	domainTransactionCreated.AccountName = getAccountName(source)
 	domainTransactionCreated.MerchantName = getMerchantName(source)
@@ -49,5 +52,6 @@ func ConvertTransactionSplit(source generated.TransactionSplit) *domain.Transact
 	domainTransactionCreated.CurrencySymbol = currencySymbolOrDefault(source.CurrencySymbol)
 	domainTransactionCreated.Date = copyTime(source.Date)
 	domainTransactionCreated.Description = source.Description
+	domainTransactionCreated.Category = stringOrEmpty(source.CategoryName)
 	return &domainTransactionCreated
 }

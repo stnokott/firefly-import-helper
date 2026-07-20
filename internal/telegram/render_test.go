@@ -12,7 +12,7 @@ import (
 func TestRenderNewTransaction(t *testing.T) {
 	t.Parallel()
 
-	data := &domain.TransactionCreated{
+	data := &domain.TransactionRead{
 		Type:           domain.TransactionTypeWithdrawal,
 		AccountName:    "My Account A",
 		MerchantName:   "Pirates",

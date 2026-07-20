@@ -19,22 +19,20 @@ import (
 var logger = log.For("importer")
 
 type Importer struct {
-	cfg          *config.YAML
-	msg          domain.Messenger
-	bank         domain.BankConnector
-	fireflyRead  domain.FireflyReader
-	fireflyWrite domain.FireflyWriter
-	lastRun      time.Time
+	cfg     *config.YAML
+	msg     domain.Messenger
+	bank    domain.BankConnector
+	firefly domain.FireflyReadWriter
+	lastRun time.Time
 }
 
-func New(cfg *config.YAML, msg domain.Messenger, bank domain.BankConnector, ffRead domain.FireflyReader, ffWrite domain.FireflyWriter) (*Importer, error) {
+func New(cfg *config.YAML, msg domain.Messenger, bank domain.BankConnector, ff domain.FireflyReadWriter) (*Importer, error) {
 	im := &Importer{
-		cfg:          cfg,
-		msg:          msg,
-		bank:         bank,
-		fireflyRead:  ffRead,
-		fireflyWrite: ffWrite,
-		lastRun:      time.Date(1900, 1, 1, 0, 0, 0, 0, time.UTC),
+		cfg:     cfg,
+		msg:     msg,
+		bank:    bank,
+		firefly: ff,
+		lastRun: time.Date(1900, 1, 1, 0, 0, 0, 0, time.UTC),
 	}
 	if err := im.validateConfig(); err != nil {
 		return nil, fmt.Errorf("config validation error: %w", err)
@@ -46,7 +44,7 @@ func (im *Importer) validateConfig() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	ffAccounts, err := im.fireflyRead.ListAssetAccounts(ctx)
+	ffAccounts, err := im.firefly.ListAssetAccounts(ctx)
 	if err != nil {
 		return fmt.Errorf("could not list Firefly accounts: %w", err)
 	}
@@ -64,6 +62,12 @@ func (im *Importer) Import(ctx context.Context, dryRun bool) (err error) {
 	}()
 	if err := im.msg.MsgImportStarted(ctx); err != nil {
 		return err
+	}
+
+	// Firefly categories required later for Messenger interactions
+	ffCategories, err := im.firefly.ListCategories(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to query Firefly categories: %w", err)
 	}
 
 	accounts, err := im.bank.GetAccounts(ctx)
@@ -90,7 +94,7 @@ func (im *Importer) Import(ctx context.Context, dryRun bool) (err error) {
 				Problem: "Internal data provider error.",
 			})
 		case acc.Status == domain.BankAccountStatusActive:
-			imported, err := im.importAccount(ctx, acc)
+			imported, err := im.importAccount(ctx, acc, ffCategories)
 			if err != nil {
 				logger.Errorv(err)
 			} else {
@@ -116,7 +120,7 @@ func (im *Importer) nextImportRange() (from, to time.Time) {
 }
 
 // importAccount imports transactions for the given account and returns the number of imported transactions.
-func (im *Importer) importAccount(ctx context.Context, acc domain.BankAccount) (int, error) {
+func (im *Importer) importAccount(ctx context.Context, acc domain.BankAccount, ffCategories []string) (int, error) {
 	from, to := im.nextImportRange()
 	transactions, err := im.bank.GetTransactions(ctx, acc.ID, from, to)
 	if err != nil {
@@ -131,7 +135,7 @@ func (im *Importer) importAccount(ctx context.Context, acc domain.BankAccount) (
 			continue
 		}
 
-		fireflyID, err := im.importTransaction(ctx, t, fireflyAccountID)
+		fireflyID, err := im.importTransaction(ctx, t, fireflyAccountID, ffCategories)
 		if err != nil {
 			// duplicate transactions are acceptable - continue
 			if errDuplicate, isDuplicate := errors.AsType[firefly.DuplicateTransactionError](err); isDuplicate {
@@ -147,12 +151,12 @@ func (im *Importer) importAccount(ctx context.Context, acc domain.BankAccount) (
 	return created, nil
 }
 
-func (im *Importer) importTransaction(ctx context.Context, t domain.BankTransaction, fireflyAccountID string) (string, error) {
-	created, err := im.fireflyWrite.CreateTransaction(ctx, fireflyAccountID, t)
+func (im *Importer) importTransaction(ctx context.Context, t domain.BankTransaction, fireflyAccountID string, ffCategories []string) (string, error) {
+	created, err := im.firefly.CreateTransaction(ctx, fireflyAccountID, t)
 	if err != nil {
 		return "", fmt.Errorf("failed to create Firefly transaction: %w", err)
 	}
-	if err := im.msg.MsgNewTransaction(ctx, created); err != nil {
+	if err := im.msg.MsgNewTransaction(ctx, created, ffCategories); err != nil {
 		logger.Errorv(err)
 	}
 	return created.FireflyID, nil

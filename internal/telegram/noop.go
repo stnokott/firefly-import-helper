@@ -24,6 +24,6 @@ func (noop) MsgImportStarted(_ context.Context) error {
 	return nil
 }
 
-func (noop) MsgNewTransaction(_ context.Context, _ *domain.TransactionCreated) error {
+func (noop) MsgNewTransaction(_ context.Context, _ *domain.TransactionRead, _ []string) error {
 	return nil
 }

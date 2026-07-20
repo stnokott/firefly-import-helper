@@ -15,7 +15,7 @@ import (
 	"github.com/stnokott/firefly-import-helper/internal/log"
 )
 
-//go:generate go tool oapi-codegen -config .oapi-codegen.yaml firefly-iii-6.4.14-v1.yaml
+//go:generate go tool oapi-codegen -config .oapi-codegen.yaml firefly-iii-6.8.6-v1.yaml
 
 var logger = log.For("firefly")
 
@@ -24,12 +24,7 @@ type client struct {
 	baseURL url.URL
 }
 
-type FireflyReadWriter interface {
-	domain.FireflyReader
-	domain.FireflyWriter
-}
-
-func New(baseURL url.URL, token string) (FireflyReadWriter, error) {
+func New(baseURL url.URL, token string) (domain.FireflyReadWriter, error) {
 	api, err := generated.NewClientWithResponses(
 		baseURL.JoinPath("/api").String(),
 		generated.WithRequestEditorFn(func(ctx context.Context, req *http.Request) error {
@@ -65,25 +60,37 @@ func (c *client) ListAssetAccounts(ctx context.Context) (domain.FireflyAccounts,
 	return ConvertAccounts(accounts), nil
 }
 
-func (c *client) searchTransactionByExternalID(ctx context.Context, extID string) (*generated.TransactionRead, error) {
+func (c *client) ListCategories(ctx context.Context) ([]string, error) {
 	requestFunc := func(page int32) (int, []byte, error) {
-		resp, err := c.api.SearchTransactionsWithResponse(ctx, &generated.SearchTransactionsParams{
-			Limit: new(int32(1)),
-			Query: "external_id_is:" + extID,
+		resp, err := c.api.ListCategoryWithResponse(ctx, &generated.ListCategoryParams{
+			Page: new(page),
 		})
 		return resp.StatusCode(), resp.Body, err
 	}
-	transactions, err := paginatedRequest[generated.TransactionRead](requestFunc)
+	categoriesFull, err := paginatedRequest[generated.CategoryRead](requestFunc)
 	if err != nil {
 		return nil, err
 	}
-	if len(transactions) == 0 {
-		return nil, nil
+	categories := make([]string, len(categoriesFull))
+	for i := range categoriesFull {
+		categories[i] = categoriesFull[i].Attributes.Name
 	}
-	return &transactions[0], nil
+	return categories, nil
 }
 
-func (c *client) CreateTransaction(ctx context.Context, accountID string, t domain.BankTransaction) (*domain.TransactionCreated, error) {
+func (c *client) getTransactionByID(ctx context.Context, id string) (*generated.TransactionRead, error) {
+	resp, err := c.api.GetTransactionWithResponse(ctx, id, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query transaction %q: %w", id, err)
+	}
+
+	if resp.StatusCode() != http.StatusOK {
+		return nil, errFromResponse(resp.StatusCode(), resp.Body)
+	}
+	return &resp.ApplicationvndApiJSON200.Data, nil
+}
+
+func (c *client) CreateTransaction(ctx context.Context, accountID string, t domain.BankTransaction) (*domain.TransactionRead, error) {
 	// validate we dont have the same external ID in Firefly already
 	if existingTransaction, err := c.searchTransactionByExternalID(ctx, t.ID); err != nil {
 		return nil, fmt.Errorf("failed to search for transaction by external ID %s: %w", t.ID, err)
@@ -104,11 +111,62 @@ func (c *client) CreateTransaction(ctx context.Context, accountID string, t doma
 	if err != nil {
 		return nil, fmt.Errorf("could not create transaction: %w", err)
 	}
-	if resp.StatusCode() != 200 {
+	if resp.StatusCode() != http.StatusOK {
 		return nil, errFromResponse(resp.StatusCode(), resp.Body)
 	}
-	created := ConvertTransactionRead(resp.ApplicationvndApiJSON200.Data, c.baseURL)
+	created := ConvertTransactionRead(&resp.ApplicationvndApiJSON200.Data, c.baseURL)
 	return created, nil
+}
+
+func (c *client) UpdateTransactionCategory(ctx context.Context, transactionID string, category string) (*domain.TransactionRead, error) {
+	// For update, we need transaction journal IDs, so need to query full transaction first.
+	// See https://docs.firefly-iii.org/references/firefly-iii/api/specials/#transaction-update.
+	current, err := c.getTransactionByID(ctx, transactionID)
+	if err != nil {
+		return nil, err
+	}
+
+	updateSplits := make([]generated.TransactionSplitUpdate, len(current.Attributes.Transactions))
+	for i := range current.Attributes.Transactions {
+		updateSplits[i] = generated.TransactionSplitUpdate{
+			TransactionJournalId: current.Attributes.Transactions[i].TransactionJournalId,
+			CategoryName:         nullable.NewNullableWithValue(category),
+		}
+	}
+
+	update := generated.TransactionUpdate{
+		ApplyRules:   new(false),
+		FireWebhooks: new(false),
+		GroupTitle:   current.Attributes.GroupTitle,
+		Transactions: &updateSplits,
+	}
+	resp, err := c.api.UpdateTransactionWithResponse(ctx, transactionID, nil, update)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update transaction: %w", err)
+	}
+	if resp.StatusCode() != http.StatusOK {
+		return nil, errFromResponse(resp.StatusCode(), resp.Body)
+	}
+
+	return ConvertTransactionRead(&resp.ApplicationvndApiJSON200.Data, c.baseURL), nil
+}
+
+func (c *client) searchTransactionByExternalID(ctx context.Context, extID string) (*generated.TransactionRead, error) {
+	requestFunc := func(page int32) (int, []byte, error) {
+		resp, err := c.api.SearchTransactionsWithResponse(ctx, &generated.SearchTransactionsParams{
+			Limit: new(int32(1)),
+			Query: "external_id_is:" + extID,
+		})
+		return resp.StatusCode(), resp.Body, err
+	}
+	transactions, err := paginatedRequest[generated.TransactionRead](requestFunc)
+	if err != nil {
+		return nil, err
+	}
+	if len(transactions) == 0 {
+		return nil, nil
+	}
+	return &transactions[0], nil
 }
 
 func paginatedRequest[V any](get func(page int32) (status int, body []byte, err error)) ([]V, error) {

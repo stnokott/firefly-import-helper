@@ -83,10 +83,25 @@ func run(env *config.Env, dryRun bool, disableNotifications bool) error {
 		return err
 	}
 
+	ff, err := firefly.New(env.FireflyBaseURL.URL, env.FireflyAccessToken)
+	if err != nil {
+		return fmt.Errorf("could not create Firefly API client: %w", err)
+	}
+
+	if dryRun {
+		ff = struct {
+			domain.FireflyWriter
+			domain.FireflyReader
+		}{
+			FireflyWriter: firefly.NewNoopWriter(),
+			FireflyReader: ff,
+		}
+	}
+
 	messenger := telegram.NewNoop()
 	if !disableNotifications && !dryRun {
 		if messenger, err = telegram.NewBot(
-			env.TelegramBotToken, env.FireflyBaseURL.URL, env.TelegramChatID,
+			env.TelegramBotToken, env.FireflyBaseURL.URL, env.TelegramChatID, ff,
 		); err != nil {
 			return err
 		}
@@ -94,16 +109,7 @@ func run(env *config.Env, dryRun bool, disableNotifications bool) error {
 
 	bank := lunchflow.NewClient(env.LunchflowAPIKey)
 
-	ff, err := firefly.New(env.FireflyBaseURL.URL, env.FireflyAccessToken)
-	if err != nil {
-		return fmt.Errorf("could not create Firefly API client: %w", err)
-	}
-	ffWriter := domain.FireflyWriter(ff)
-	if dryRun {
-		ffWriter = firefly.NewNoopWriter()
-	}
-
-	im, err := importer.New(cfg, messenger, bank, ff, ffWriter)
+	im, err := importer.New(cfg, messenger, bank, ff)
 	if err != nil {
 		return err
 	}

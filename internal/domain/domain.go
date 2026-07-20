@@ -55,12 +55,19 @@ const (
 	TransactionTypeDeposit    TransactionType = "DEPOSIT"
 )
 
+type FireflyReadWriter interface {
+	FireflyReader
+	FireflyWriter
+}
+
 type FireflyReader interface {
 	ListAssetAccounts(ctx context.Context) (FireflyAccounts, error)
+	ListCategories(ctx context.Context) ([]string, error)
 }
 
 type FireflyWriter interface {
-	CreateTransaction(ctx context.Context, accountID string, t BankTransaction) (*TransactionCreated, error)
+	CreateTransaction(ctx context.Context, accountID string, t BankTransaction) (*TransactionRead, error)
+	UpdateTransactionCategory(ctx context.Context, transactionID string, category string) (*TransactionRead, error)
 }
 
 type FireflyAccount struct {
@@ -86,10 +93,10 @@ type Messenger interface {
 	Listen(ctx context.Context)
 	MsgAccountProblem(ctx context.Context, problem AccountProblem) error
 	MsgImportStarted(ctx context.Context) error
-	MsgNewTransaction(ctx context.Context, data *TransactionCreated) error
+	MsgNewTransaction(ctx context.Context, data *TransactionRead, ffCategories []string) error
 }
 
-type TransactionCreated struct {
+type TransactionRead struct {
 	Type           TransactionType
 	AccountName    string
 	MerchantName   string
@@ -97,6 +104,7 @@ type TransactionCreated struct {
 	CurrencySymbol string
 	Date           time.Time
 	Description    string
+	Category       string
 	FireflyID      string
 	FireflyURL     string
 }

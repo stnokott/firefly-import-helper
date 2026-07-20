@@ -102,6 +102,7 @@ const (
 
 // Defines values for InterestPeriodProperty.
 const (
+	InterestPeriodPropertyDaily       InterestPeriodProperty = "daily"
 	InterestPeriodPropertyHalfYear    InterestPeriodProperty = "half-year"
 	InterestPeriodPropertyLessThannil InterestPeriodProperty = "<nil>"
 	InterestPeriodPropertyMonthly     InterestPeriodProperty = "monthly"
@@ -441,6 +442,19 @@ type AccountUpdate struct {
 	ZoomLevel nullable.Nullable[int32] `json:"zoom_level,omitempty"`
 }
 
+// ArrayEntryWithCurrencyAndSum defines model for ArrayEntryWithCurrencyAndSum.
+type ArrayEntryWithCurrencyAndSum struct {
+	CurrencyCode *string `json:"currency_code,omitempty"`
+
+	// CurrencyDecimalPlaces Number of decimals supported by the currency
+	CurrencyDecimalPlaces *int32  `json:"currency_decimal_places,omitempty"`
+	CurrencyId            *string `json:"currency_id,omitempty"`
+	CurrencySymbol        *string `json:"currency_symbol,omitempty"`
+
+	// Sum The amount earned, spent or transferred.
+	Sum *string `json:"sum,omitempty"`
+}
+
 // AttachableType The object class to which the attachment must be linked.
 type AttachableType string
 
@@ -485,6 +499,82 @@ type AttachmentRead struct {
 type BadRequestResponse struct {
 	Exception *string `json:"exception,omitempty"`
 	Message   *string `json:"message,omitempty"`
+}
+
+// CategoryArray defines model for CategoryArray.
+type CategoryArray struct {
+	Data []CategoryRead `json:"data"`
+	Meta Meta           `json:"meta"`
+}
+
+// CategoryProperties defines model for CategoryProperties.
+type CategoryProperties struct {
+	CreatedAt *time.Time `json:"created_at,omitempty"`
+
+	// Earned Amount(s) earned in the currencies in the database for this category. ONLY present when start and date are set.
+	Earned *[]ArrayEntryWithCurrencyAndSum `json:"earned,omitempty"`
+	Name   string                          `json:"name"`
+	Notes  nullable.Nullable[string]       `json:"notes,omitempty"`
+
+	// ObjectHasCurrencySetting This object never has its own currency setting, so this value is always false.
+	ObjectHasCurrencySetting *bool `json:"object_has_currency_setting,omitempty"`
+
+	// PcEarned Amount(s) earned in the primary currency in the database for this category. ONLY present when start and date are set.
+	PcEarned *[]ArrayEntryWithCurrencyAndSum `json:"pc_earned,omitempty"`
+
+	// PcSpent Amount(s) spent in the primary currency in the database for this category. ONLY present when start and date are set.
+	PcSpent *[]ArrayEntryWithCurrencyAndSum `json:"pc_spent,omitempty"`
+
+	// PcTransferred Amount(s) transferred in primary currency in the database for this category. ONLY present when start and date are set.
+	PcTransferred *[]ArrayEntryWithCurrencyAndSum `json:"pc_transferred,omitempty"`
+
+	// PrimaryCurrencyCode The currency code of the administration's primary currency.
+	PrimaryCurrencyCode *string `json:"primary_currency_code,omitempty"`
+
+	// PrimaryCurrencyDecimalPlaces The currency decimal places of the administration's primary currency.
+	PrimaryCurrencyDecimalPlaces *int32 `json:"primary_currency_decimal_places,omitempty"`
+
+	// PrimaryCurrencyId The currency ID of the administration's primary currency.
+	PrimaryCurrencyId *string `json:"primary_currency_id,omitempty"`
+
+	// PrimaryCurrencyName The currency name of the administration's primary currency.
+	PrimaryCurrencyName *string `json:"primary_currency_name,omitempty"`
+
+	// PrimaryCurrencySymbol The currency symbol of the administration's primary currency.
+	PrimaryCurrencySymbol *string `json:"primary_currency_symbol,omitempty"`
+
+	// Spent Amount(s) spent in the currencies in the database for this category. ONLY present when start and date are set.
+	Spent *[]ArrayEntryWithCurrencyAndSum `json:"spent,omitempty"`
+
+	// Transferred Amount(s) transferred in the currencies in the database for this category. ONLY present when start and date are set.
+	Transferred *[]ArrayEntryWithCurrencyAndSum `json:"transferred,omitempty"`
+	UpdatedAt   *time.Time                      `json:"updated_at,omitempty"`
+}
+
+// CategoryRead defines model for CategoryRead.
+type CategoryRead struct {
+	Attributes CategoryProperties `json:"attributes"`
+	Id         string             `json:"id"`
+
+	// Type Immutable value
+	Type string `json:"type"`
+}
+
+// CategorySingle defines model for CategorySingle.
+type CategorySingle struct {
+	Data CategoryRead `json:"data"`
+}
+
+// CategoryStore defines model for CategoryStore.
+type CategoryStore struct {
+	Name  string                    `json:"name"`
+	Notes nullable.Nullable[string] `json:"notes,omitempty"`
+}
+
+// CategoryUpdate defines model for CategoryUpdate.
+type CategoryUpdate struct {
+	Name  string                    `json:"name"`
+	Notes nullable.Nullable[string] `json:"notes,omitempty"`
 }
 
 // CreditCardTypeProperty Mandatory when the account_role is ccAsset. Can only be monthlyFull or null.
@@ -1367,6 +1457,81 @@ type ListTransactionByAccountParams struct {
 	XTraceId *openapi_types.UUID `json:"X-Trace-Id,omitempty"`
 }
 
+// ListCategoryParams defines parameters for ListCategory.
+type ListCategoryParams struct {
+	// Limit Number of items per page. The default pagination is per 50 items.
+	Limit *int32 `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Page Page number. The default pagination is per 50 items.
+	Page *int32 `form:"page,omitempty" json:"page,omitempty"`
+
+	// XTraceId Unique identifier associated with this request.
+	XTraceId *openapi_types.UUID `json:"X-Trace-Id,omitempty"`
+}
+
+// StoreCategoryParams defines parameters for StoreCategory.
+type StoreCategoryParams struct {
+	// XTraceId Unique identifier associated with this request.
+	XTraceId *openapi_types.UUID `json:"X-Trace-Id,omitempty"`
+}
+
+// DeleteCategoryParams defines parameters for DeleteCategory.
+type DeleteCategoryParams struct {
+	// XTraceId Unique identifier associated with this request.
+	XTraceId *openapi_types.UUID `json:"X-Trace-Id,omitempty"`
+}
+
+// GetCategoryParams defines parameters for GetCategory.
+type GetCategoryParams struct {
+	// Start A date formatted YYYY-MM-DD, to show spent and earned info.
+	Start *openapi_types.Date `form:"start,omitempty" json:"start,omitempty"`
+
+	// End A date formatted YYYY-MM-DD, to show spent and earned info.
+	End *openapi_types.Date `form:"end,omitempty" json:"end,omitempty"`
+
+	// XTraceId Unique identifier associated with this request.
+	XTraceId *openapi_types.UUID `json:"X-Trace-Id,omitempty"`
+}
+
+// UpdateCategoryParams defines parameters for UpdateCategory.
+type UpdateCategoryParams struct {
+	// XTraceId Unique identifier associated with this request.
+	XTraceId *openapi_types.UUID `json:"X-Trace-Id,omitempty"`
+}
+
+// ListAttachmentByCategoryParams defines parameters for ListAttachmentByCategory.
+type ListAttachmentByCategoryParams struct {
+	// Limit Number of items per page. The default pagination is per 50 items.
+	Limit *int32 `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Page Page number. The default pagination is per 50 items.
+	Page *int32 `form:"page,omitempty" json:"page,omitempty"`
+
+	// XTraceId Unique identifier associated with this request.
+	XTraceId *openapi_types.UUID `json:"X-Trace-Id,omitempty"`
+}
+
+// ListTransactionByCategoryParams defines parameters for ListTransactionByCategory.
+type ListTransactionByCategoryParams struct {
+	// Limit Number of items per page. The default pagination is per 50 items.
+	Limit *int32 `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Page Page number. The default pagination is per 50 items.
+	Page *int32 `form:"page,omitempty" json:"page,omitempty"`
+
+	// Start A date formatted YYYY-MM-DD, to limit the result list.
+	Start *openapi_types.Date `form:"start,omitempty" json:"start,omitempty"`
+
+	// End A date formatted YYYY-MM-DD, to limit the result list.
+	End *openapi_types.Date `form:"end,omitempty" json:"end,omitempty"`
+
+	// Type Optional filter on the transaction type(s) returned
+	Type *TransactionTypeFilter `form:"type,omitempty" json:"type,omitempty"`
+
+	// XTraceId Unique identifier associated with this request.
+	XTraceId *openapi_types.UUID `json:"X-Trace-Id,omitempty"`
+}
+
 // SearchAccountsParams defines parameters for SearchAccounts.
 type SearchAccountsParams struct {
 	// Limit Number of items per page. The default pagination is per 50 items.
@@ -1508,6 +1673,18 @@ type UpdateAccountJSONRequestBody = AccountUpdate
 // UpdateAccountFormdataRequestBody defines body for UpdateAccount for application/x-www-form-urlencoded ContentType.
 type UpdateAccountFormdataRequestBody = AccountUpdate
 
+// StoreCategoryJSONRequestBody defines body for StoreCategory for application/json ContentType.
+type StoreCategoryJSONRequestBody = CategoryStore
+
+// StoreCategoryFormdataRequestBody defines body for StoreCategory for application/x-www-form-urlencoded ContentType.
+type StoreCategoryFormdataRequestBody = CategoryStore
+
+// UpdateCategoryJSONRequestBody defines body for UpdateCategory for application/json ContentType.
+type UpdateCategoryJSONRequestBody = CategoryUpdate
+
+// UpdateCategoryFormdataRequestBody defines body for UpdateCategory for application/x-www-form-urlencoded ContentType.
+type UpdateCategoryFormdataRequestBody = CategoryUpdate
+
 // StoreTransactionJSONRequestBody defines body for StoreTransaction for application/json ContentType.
 type StoreTransactionJSONRequestBody = TransactionStore
 
@@ -1624,6 +1801,35 @@ type ClientInterface interface {
 
 	// ListTransactionByAccount request
 	ListTransactionByAccount(ctx context.Context, id string, params *ListTransactionByAccountParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListCategory request
+	ListCategory(ctx context.Context, params *ListCategoryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// StoreCategoryWithBody request with any body
+	StoreCategoryWithBody(ctx context.Context, params *StoreCategoryParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	StoreCategory(ctx context.Context, params *StoreCategoryParams, body StoreCategoryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	StoreCategoryWithFormdataBody(ctx context.Context, params *StoreCategoryParams, body StoreCategoryFormdataRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteCategory request
+	DeleteCategory(ctx context.Context, id string, params *DeleteCategoryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetCategory request
+	GetCategory(ctx context.Context, id string, params *GetCategoryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateCategoryWithBody request with any body
+	UpdateCategoryWithBody(ctx context.Context, id string, params *UpdateCategoryParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateCategory(ctx context.Context, id string, params *UpdateCategoryParams, body UpdateCategoryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateCategoryWithFormdataBody(ctx context.Context, id string, params *UpdateCategoryParams, body UpdateCategoryFormdataRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListAttachmentByCategory request
+	ListAttachmentByCategory(ctx context.Context, id string, params *ListAttachmentByCategoryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListTransactionByCategory request
+	ListTransactionByCategory(ctx context.Context, id string, params *ListTransactionByCategoryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// SearchAccounts request
 	SearchAccounts(ctx context.Context, params *SearchAccountsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1804,6 +2010,138 @@ func (c *Client) ListPiggyBankByAccount(ctx context.Context, id string, params *
 
 func (c *Client) ListTransactionByAccount(ctx context.Context, id string, params *ListTransactionByAccountParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListTransactionByAccountRequest(c.Server, id, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListCategory(ctx context.Context, params *ListCategoryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListCategoryRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) StoreCategoryWithBody(ctx context.Context, params *StoreCategoryParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStoreCategoryRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) StoreCategory(ctx context.Context, params *StoreCategoryParams, body StoreCategoryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStoreCategoryRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) StoreCategoryWithFormdataBody(ctx context.Context, params *StoreCategoryParams, body StoreCategoryFormdataRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStoreCategoryRequestWithFormdataBody(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteCategory(ctx context.Context, id string, params *DeleteCategoryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteCategoryRequest(c.Server, id, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetCategory(ctx context.Context, id string, params *GetCategoryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetCategoryRequest(c.Server, id, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateCategoryWithBody(ctx context.Context, id string, params *UpdateCategoryParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateCategoryRequestWithBody(c.Server, id, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateCategory(ctx context.Context, id string, params *UpdateCategoryParams, body UpdateCategoryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateCategoryRequest(c.Server, id, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateCategoryWithFormdataBody(ctx context.Context, id string, params *UpdateCategoryParams, body UpdateCategoryFormdataRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateCategoryRequestWithFormdataBody(c.Server, id, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListAttachmentByCategory(ctx context.Context, id string, params *ListAttachmentByCategoryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListAttachmentByCategoryRequest(c.Server, id, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListTransactionByCategory(ctx context.Context, id string, params *ListTransactionByCategoryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListTransactionByCategoryRequest(c.Server, id, params)
 	if err != nil {
 		return nil, err
 	}
@@ -2632,6 +2970,583 @@ func NewListTransactionByAccountRequest(server string, id string, params *ListTr
 	}
 
 	operationPath := fmt.Sprintf("/v1/accounts/%s/transactions", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Page != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "page", runtime.ParamLocationQuery, *params.Page); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Start != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "start", runtime.ParamLocationQuery, *params.Start); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.End != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "end", runtime.ParamLocationQuery, *params.End); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Type != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "type", runtime.ParamLocationQuery, *params.Type); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.XTraceId != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Trace-Id", runtime.ParamLocationHeader, *params.XTraceId)
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-Trace-Id", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewListCategoryRequest generates requests for ListCategory
+func NewListCategoryRequest(server string, params *ListCategoryParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/categories")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Page != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "page", runtime.ParamLocationQuery, *params.Page); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.XTraceId != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Trace-Id", runtime.ParamLocationHeader, *params.XTraceId)
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-Trace-Id", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewStoreCategoryRequest calls the generic StoreCategory builder with application/json body
+func NewStoreCategoryRequest(server string, params *StoreCategoryParams, body StoreCategoryJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewStoreCategoryRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewStoreCategoryRequestWithFormdataBody calls the generic StoreCategory builder with application/x-www-form-urlencoded body
+func NewStoreCategoryRequestWithFormdataBody(server string, params *StoreCategoryParams, body StoreCategoryFormdataRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	bodyStr, err := runtime.MarshalForm(body, nil)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = strings.NewReader(bodyStr.Encode())
+	return NewStoreCategoryRequestWithBody(server, params, "application/x-www-form-urlencoded", bodyReader)
+}
+
+// NewStoreCategoryRequestWithBody generates requests for StoreCategory with any type of body
+func NewStoreCategoryRequestWithBody(server string, params *StoreCategoryParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/categories")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.XTraceId != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Trace-Id", runtime.ParamLocationHeader, *params.XTraceId)
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-Trace-Id", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewDeleteCategoryRequest generates requests for DeleteCategory
+func NewDeleteCategoryRequest(server string, id string, params *DeleteCategoryParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/categories/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.XTraceId != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Trace-Id", runtime.ParamLocationHeader, *params.XTraceId)
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-Trace-Id", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewGetCategoryRequest generates requests for GetCategory
+func NewGetCategoryRequest(server string, id string, params *GetCategoryParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/categories/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Start != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "start", runtime.ParamLocationQuery, *params.Start); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.End != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "end", runtime.ParamLocationQuery, *params.End); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.XTraceId != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Trace-Id", runtime.ParamLocationHeader, *params.XTraceId)
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-Trace-Id", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewUpdateCategoryRequest calls the generic UpdateCategory builder with application/json body
+func NewUpdateCategoryRequest(server string, id string, params *UpdateCategoryParams, body UpdateCategoryJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateCategoryRequestWithBody(server, id, params, "application/json", bodyReader)
+}
+
+// NewUpdateCategoryRequestWithFormdataBody calls the generic UpdateCategory builder with application/x-www-form-urlencoded body
+func NewUpdateCategoryRequestWithFormdataBody(server string, id string, params *UpdateCategoryParams, body UpdateCategoryFormdataRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	bodyStr, err := runtime.MarshalForm(body, nil)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = strings.NewReader(bodyStr.Encode())
+	return NewUpdateCategoryRequestWithBody(server, id, params, "application/x-www-form-urlencoded", bodyReader)
+}
+
+// NewUpdateCategoryRequestWithBody generates requests for UpdateCategory with any type of body
+func NewUpdateCategoryRequestWithBody(server string, id string, params *UpdateCategoryParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/categories/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.XTraceId != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Trace-Id", runtime.ParamLocationHeader, *params.XTraceId)
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-Trace-Id", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewListAttachmentByCategoryRequest generates requests for ListAttachmentByCategory
+func NewListAttachmentByCategoryRequest(server string, id string, params *ListAttachmentByCategoryParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/categories/%s/attachments", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Page != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "page", runtime.ParamLocationQuery, *params.Page); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.XTraceId != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Trace-Id", runtime.ParamLocationHeader, *params.XTraceId)
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-Trace-Id", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewListTransactionByCategoryRequest generates requests for ListTransactionByCategory
+func NewListTransactionByCategoryRequest(server string, id string, params *ListTransactionByCategoryParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/categories/%s/transactions", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -3761,6 +4676,35 @@ type ClientWithResponsesInterface interface {
 	// ListTransactionByAccountWithResponse request
 	ListTransactionByAccountWithResponse(ctx context.Context, id string, params *ListTransactionByAccountParams, reqEditors ...RequestEditorFn) (*ListTransactionByAccountResponse, error)
 
+	// ListCategoryWithResponse request
+	ListCategoryWithResponse(ctx context.Context, params *ListCategoryParams, reqEditors ...RequestEditorFn) (*ListCategoryResponse, error)
+
+	// StoreCategoryWithBodyWithResponse request with any body
+	StoreCategoryWithBodyWithResponse(ctx context.Context, params *StoreCategoryParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StoreCategoryResponse, error)
+
+	StoreCategoryWithResponse(ctx context.Context, params *StoreCategoryParams, body StoreCategoryJSONRequestBody, reqEditors ...RequestEditorFn) (*StoreCategoryResponse, error)
+
+	StoreCategoryWithFormdataBodyWithResponse(ctx context.Context, params *StoreCategoryParams, body StoreCategoryFormdataRequestBody, reqEditors ...RequestEditorFn) (*StoreCategoryResponse, error)
+
+	// DeleteCategoryWithResponse request
+	DeleteCategoryWithResponse(ctx context.Context, id string, params *DeleteCategoryParams, reqEditors ...RequestEditorFn) (*DeleteCategoryResponse, error)
+
+	// GetCategoryWithResponse request
+	GetCategoryWithResponse(ctx context.Context, id string, params *GetCategoryParams, reqEditors ...RequestEditorFn) (*GetCategoryResponse, error)
+
+	// UpdateCategoryWithBodyWithResponse request with any body
+	UpdateCategoryWithBodyWithResponse(ctx context.Context, id string, params *UpdateCategoryParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateCategoryResponse, error)
+
+	UpdateCategoryWithResponse(ctx context.Context, id string, params *UpdateCategoryParams, body UpdateCategoryJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateCategoryResponse, error)
+
+	UpdateCategoryWithFormdataBodyWithResponse(ctx context.Context, id string, params *UpdateCategoryParams, body UpdateCategoryFormdataRequestBody, reqEditors ...RequestEditorFn) (*UpdateCategoryResponse, error)
+
+	// ListAttachmentByCategoryWithResponse request
+	ListAttachmentByCategoryWithResponse(ctx context.Context, id string, params *ListAttachmentByCategoryParams, reqEditors ...RequestEditorFn) (*ListAttachmentByCategoryResponse, error)
+
+	// ListTransactionByCategoryWithResponse request
+	ListTransactionByCategoryWithResponse(ctx context.Context, id string, params *ListTransactionByCategoryParams, reqEditors ...RequestEditorFn) (*ListTransactionByCategoryResponse, error)
+
 	// SearchAccountsWithResponse request
 	SearchAccountsWithResponse(ctx context.Context, params *SearchAccountsParams, reqEditors ...RequestEditorFn) (*SearchAccountsResponse, error)
 
@@ -4009,6 +4953,189 @@ func (r ListTransactionByAccountResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ListTransactionByAccountResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListCategoryResponse struct {
+	Body                     []byte
+	HTTPResponse             *http.Response
+	ApplicationvndApiJSON200 *CategoryArray
+	JSON400                  *BadRequestResponse
+	JSON401                  *UnauthenticatedResponse
+	JSON404                  *NotFoundResponse
+	JSON500                  *InternalExceptionResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r ListCategoryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListCategoryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type StoreCategoryResponse struct {
+	Body                     []byte
+	HTTPResponse             *http.Response
+	ApplicationvndApiJSON200 *CategorySingle
+	JSON400                  *BadRequestResponse
+	JSON401                  *UnauthenticatedResponse
+	JSON404                  *NotFoundResponse
+	JSON422                  *ValidationErrorResponse
+	JSON500                  *InternalExceptionResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r StoreCategoryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r StoreCategoryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteCategoryResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *BadRequestResponse
+	JSON401      *UnauthenticatedResponse
+	JSON404      *NotFoundResponse
+	JSON500      *InternalExceptionResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteCategoryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteCategoryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetCategoryResponse struct {
+	Body                     []byte
+	HTTPResponse             *http.Response
+	ApplicationvndApiJSON200 *CategorySingle
+	JSON400                  *BadRequestResponse
+	JSON401                  *UnauthenticatedResponse
+	JSON404                  *NotFoundResponse
+	JSON500                  *InternalExceptionResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetCategoryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetCategoryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateCategoryResponse struct {
+	Body                     []byte
+	HTTPResponse             *http.Response
+	ApplicationvndApiJSON200 *CategorySingle
+	JSON400                  *BadRequestResponse
+	JSON401                  *UnauthenticatedResponse
+	JSON404                  *NotFoundResponse
+	JSON422                  *ValidationErrorResponse
+	JSON500                  *InternalExceptionResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateCategoryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateCategoryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListAttachmentByCategoryResponse struct {
+	Body                     []byte
+	HTTPResponse             *http.Response
+	ApplicationvndApiJSON200 *AttachmentArray
+	JSON400                  *BadRequestResponse
+	JSON401                  *UnauthenticatedResponse
+	JSON404                  *NotFoundResponse
+	JSON500                  *InternalExceptionResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r ListAttachmentByCategoryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListAttachmentByCategoryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListTransactionByCategoryResponse struct {
+	Body                     []byte
+	HTTPResponse             *http.Response
+	ApplicationvndApiJSON200 *TransactionArray
+	JSON400                  *BadRequestResponse
+	JSON401                  *UnauthenticatedResponse
+	JSON404                  *NotFoundResponse
+	JSON500                  *InternalExceptionResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r ListTransactionByCategoryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListTransactionByCategoryResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -4429,6 +5556,101 @@ func (c *ClientWithResponses) ListTransactionByAccountWithResponse(ctx context.C
 		return nil, err
 	}
 	return ParseListTransactionByAccountResponse(rsp)
+}
+
+// ListCategoryWithResponse request returning *ListCategoryResponse
+func (c *ClientWithResponses) ListCategoryWithResponse(ctx context.Context, params *ListCategoryParams, reqEditors ...RequestEditorFn) (*ListCategoryResponse, error) {
+	rsp, err := c.ListCategory(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListCategoryResponse(rsp)
+}
+
+// StoreCategoryWithBodyWithResponse request with arbitrary body returning *StoreCategoryResponse
+func (c *ClientWithResponses) StoreCategoryWithBodyWithResponse(ctx context.Context, params *StoreCategoryParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StoreCategoryResponse, error) {
+	rsp, err := c.StoreCategoryWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStoreCategoryResponse(rsp)
+}
+
+func (c *ClientWithResponses) StoreCategoryWithResponse(ctx context.Context, params *StoreCategoryParams, body StoreCategoryJSONRequestBody, reqEditors ...RequestEditorFn) (*StoreCategoryResponse, error) {
+	rsp, err := c.StoreCategory(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStoreCategoryResponse(rsp)
+}
+
+func (c *ClientWithResponses) StoreCategoryWithFormdataBodyWithResponse(ctx context.Context, params *StoreCategoryParams, body StoreCategoryFormdataRequestBody, reqEditors ...RequestEditorFn) (*StoreCategoryResponse, error) {
+	rsp, err := c.StoreCategoryWithFormdataBody(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStoreCategoryResponse(rsp)
+}
+
+// DeleteCategoryWithResponse request returning *DeleteCategoryResponse
+func (c *ClientWithResponses) DeleteCategoryWithResponse(ctx context.Context, id string, params *DeleteCategoryParams, reqEditors ...RequestEditorFn) (*DeleteCategoryResponse, error) {
+	rsp, err := c.DeleteCategory(ctx, id, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteCategoryResponse(rsp)
+}
+
+// GetCategoryWithResponse request returning *GetCategoryResponse
+func (c *ClientWithResponses) GetCategoryWithResponse(ctx context.Context, id string, params *GetCategoryParams, reqEditors ...RequestEditorFn) (*GetCategoryResponse, error) {
+	rsp, err := c.GetCategory(ctx, id, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetCategoryResponse(rsp)
+}
+
+// UpdateCategoryWithBodyWithResponse request with arbitrary body returning *UpdateCategoryResponse
+func (c *ClientWithResponses) UpdateCategoryWithBodyWithResponse(ctx context.Context, id string, params *UpdateCategoryParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateCategoryResponse, error) {
+	rsp, err := c.UpdateCategoryWithBody(ctx, id, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateCategoryResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateCategoryWithResponse(ctx context.Context, id string, params *UpdateCategoryParams, body UpdateCategoryJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateCategoryResponse, error) {
+	rsp, err := c.UpdateCategory(ctx, id, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateCategoryResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateCategoryWithFormdataBodyWithResponse(ctx context.Context, id string, params *UpdateCategoryParams, body UpdateCategoryFormdataRequestBody, reqEditors ...RequestEditorFn) (*UpdateCategoryResponse, error) {
+	rsp, err := c.UpdateCategoryWithFormdataBody(ctx, id, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateCategoryResponse(rsp)
+}
+
+// ListAttachmentByCategoryWithResponse request returning *ListAttachmentByCategoryResponse
+func (c *ClientWithResponses) ListAttachmentByCategoryWithResponse(ctx context.Context, id string, params *ListAttachmentByCategoryParams, reqEditors ...RequestEditorFn) (*ListAttachmentByCategoryResponse, error) {
+	rsp, err := c.ListAttachmentByCategory(ctx, id, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListAttachmentByCategoryResponse(rsp)
+}
+
+// ListTransactionByCategoryWithResponse request returning *ListTransactionByCategoryResponse
+func (c *ClientWithResponses) ListTransactionByCategoryWithResponse(ctx context.Context, id string, params *ListTransactionByCategoryParams, reqEditors ...RequestEditorFn) (*ListTransactionByCategoryResponse, error) {
+	rsp, err := c.ListTransactionByCategory(ctx, id, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListTransactionByCategoryResponse(rsp)
 }
 
 // SearchAccountsWithResponse request returning *SearchAccountsResponse
@@ -4965,6 +6187,391 @@ func ParseListTransactionByAccountResponse(rsp *http.Response) (*ListTransaction
 	}
 
 	response := &ListTransactionByAccountResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest TransactionArray
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationvndApiJSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequestResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest UnauthenticatedResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFoundResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalExceptionResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListCategoryResponse parses an HTTP response from a ListCategoryWithResponse call
+func ParseListCategoryResponse(rsp *http.Response) (*ListCategoryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListCategoryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CategoryArray
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationvndApiJSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequestResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest UnauthenticatedResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFoundResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalExceptionResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseStoreCategoryResponse parses an HTTP response from a StoreCategoryWithResponse call
+func ParseStoreCategoryResponse(rsp *http.Response) (*StoreCategoryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &StoreCategoryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CategorySingle
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationvndApiJSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequestResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest UnauthenticatedResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFoundResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ValidationErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalExceptionResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteCategoryResponse parses an HTTP response from a DeleteCategoryWithResponse call
+func ParseDeleteCategoryResponse(rsp *http.Response) (*DeleteCategoryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteCategoryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequestResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest UnauthenticatedResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFoundResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalExceptionResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetCategoryResponse parses an HTTP response from a GetCategoryWithResponse call
+func ParseGetCategoryResponse(rsp *http.Response) (*GetCategoryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetCategoryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CategorySingle
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationvndApiJSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequestResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest UnauthenticatedResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFoundResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalExceptionResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateCategoryResponse parses an HTTP response from a UpdateCategoryWithResponse call
+func ParseUpdateCategoryResponse(rsp *http.Response) (*UpdateCategoryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateCategoryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CategorySingle
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationvndApiJSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequestResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest UnauthenticatedResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFoundResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ValidationErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalExceptionResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListAttachmentByCategoryResponse parses an HTTP response from a ListAttachmentByCategoryWithResponse call
+func ParseListAttachmentByCategoryResponse(rsp *http.Response) (*ListAttachmentByCategoryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListAttachmentByCategoryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AttachmentArray
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationvndApiJSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequestResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest UnauthenticatedResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFoundResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalExceptionResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListTransactionByCategoryResponse parses an HTTP response from a ListTransactionByCategoryWithResponse call
+func ParseListTransactionByCategoryResponse(rsp *http.Response) (*ListTransactionByCategoryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListTransactionByCategoryResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}

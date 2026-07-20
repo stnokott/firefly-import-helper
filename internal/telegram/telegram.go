@@ -3,9 +3,11 @@ package telegram
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
+	"unicode/utf8"
 
 	telebot "github.com/go-telegram/bot"
 	telemodels "github.com/go-telegram/bot/models"
@@ -17,31 +19,36 @@ var logger = log.For("telegram")
 
 type bot struct {
 	t              *telebot.Bot
-	fireflyBaseURL url.URL
 	chatID         string
+	firefly        domain.FireflyReadWriter
+	fireflyBaseURL url.URL
 }
 
 var _ domain.Messenger = (*bot)(nil)
 
-const callbackDataPrefix = "category:"
+const callbackPrefixCategory = "category:"
 
-func NewBot(token string, fireflyBaseURL url.URL, telegramChatID string) (domain.Messenger, error) {
+func NewBot(token string, fireflyBaseURL url.URL, telegramChatID string, ffAPI domain.FireflyReadWriter) (domain.Messenger, error) {
+	b := &bot{
+		chatID:         telegramChatID,
+		firefly:        ffAPI,
+		fireflyBaseURL: fireflyBaseURL,
+	}
+
 	t, err := telebot.New(
 		token,
-		telebot.WithCallbackQueryDataHandler(callbackDataPrefix, telebot.MatchTypePrefix, callbackHandlerCategory),
+		telebot.WithCallbackQueryDataHandler(callbackPrefixCategory, telebot.MatchTypePrefix, b.callbackHandlerCategory),
 		telebot.WithErrorsHandler(func(err error) {
 			logger.Errorv(err)
 		}),
+		telebot.WithWorkers(1),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("could not create telegram bot: %w", err)
 	}
 
-	return &bot{
-		t:              t,
-		fireflyBaseURL: fireflyBaseURL,
-		chatID:         telegramChatID,
-	}, nil
+	b.t = t
+	return b, nil
 }
 
 func (b *bot) Listen(ctx context.Context) {
@@ -73,71 +80,68 @@ func (b *bot) MsgImportStarted(ctx context.Context) error {
 	return b.send(ctx, "Import starting...")
 }
 
-func (b *bot) MsgNewTransaction(ctx context.Context, data *domain.TransactionCreated) error {
+func (b *bot) MsgNewTransaction(ctx context.Context, data *domain.TransactionRead, ffCategories []string) error {
 	msg, err := renderNewTransaction(data)
 	if err != nil {
 		return fmt.Errorf("failed to send message: %w", err)
 	}
-	return b.send(ctx, msg)
+	return b.send(ctx, msg, withCategoriesKeyboard(data.FireflyID, ffCategories, data.Category))
 }
 
-func (b *bot) send(ctx context.Context, msg string) error {
-	_, err := b.t.SendMessage(ctx, &telebot.SendMessageParams{
+func (b *bot) send(ctx context.Context, msg string, opts ...sendOption) error {
+	params := &telebot.SendMessageParams{
 		ChatID:    b.chatID,
 		Text:      msg,
 		ParseMode: telemodels.ParseModeHTML,
-	})
+	}
+	for _, opt := range opts {
+		opt(params)
+	}
+
+	_, err := b.t.SendMessage(ctx, params)
 	if err != nil {
 		return fmt.Errorf("failed to send message: %w", err)
 	}
 	return nil
 }
 
-func callbackHandlerCategory(ctx context.Context, bot *telebot.Bot, update *telemodels.Update) {
-	// answer callback from button press in chat
-	_, err := bot.AnswerCallbackQuery(ctx, &telebot.AnswerCallbackQueryParams{
-		CallbackQueryID: update.CallbackQuery.ID,
-		Text:            "Pressed button with data '" + update.CallbackQuery.Data + "'",
-	})
-	if err != nil {
-		logger.Error("failed to answer callback query: " + err.Error())
-	}
+type sendOption func(params *telebot.SendMessageParams)
 
-	// TODO: API call
-
-	// edit keyboard to indicate changes
-	attachedMessage := update.CallbackQuery.Message
-	if attachedMessage.Message == nil {
-		logger.Error("received callback query without message data, ignoring")
-		return
-	}
-	selectedCategory := strings.TrimPrefix(update.CallbackQuery.Data, callbackDataPrefix)
-	_, err = bot.EditMessageReplyMarkup(ctx, &telebot.EditMessageReplyMarkupParams{
-		ChatID:          attachedMessage.Message.Chat.ID,
-		MessageID:       attachedMessage.Message.ID,
-		InlineMessageID: update.CallbackQuery.InlineMessageID,
-		ReplyMarkup:     buildInlineKeyboard([]string{"A", "B", "C"}, selectedCategory),
-	})
-	if err != nil {
-		logger.Error("failed to edit message after callback: " + err.Error())
+func withCategoriesKeyboard(transactionID string, categories []string, selectedCategory string) sendOption {
+	return func(sendParams *telebot.SendMessageParams) {
+		inlineMarkup := buildInlineCategoryKeyboard(transactionID, categories, selectedCategory)
+		sendParams.ReplyMarkup = inlineMarkup
 	}
 }
 
-const buttonsPerRow = 3
+func encodeCategoryCallbackData(transactionID, category string) string {
+	return callbackPrefixCategory + transactionID + ":" + category
+}
 
-func buildInlineKeyboard(options []string, selectedOption string) telemodels.InlineKeyboardMarkup {
+func decodeCategoryCallbackData(data string) (transactionID, category string) {
+	parts := strings.Split(data, ":")
+	return parts[1], parts[2]
+}
+
+const (
+	buttonsPerRow       = 3
+	buttonStyleSelected = "green"
+)
+
+func buildInlineCategoryKeyboard(transactionID string, categories []string, selectedCategory string) telemodels.InlineKeyboardMarkup {
 	var buttons [][]telemodels.InlineKeyboardButton
-	for i := 0; i < len(options); i += buttonsPerRow {
-		end := min(i+buttonsPerRow, len(options))
+	for i := 0; i < len(categories); i += buttonsPerRow {
+		end := min(i+buttonsPerRow, len(categories))
 		var row []telemodels.InlineKeyboardButton
-		for _, option := range options[i:end] {
-			buttonText := option
-			if option == selectedOption {
-				buttonText = "<" + buttonText + ">"
+		for _, category := range categories[i:end] {
+			button := telemodels.InlineKeyboardButton{
+				Text:         category,
+				CallbackData: encodeCategoryCallbackData(transactionID, category),
 			}
-			row = append(row, telemodels.InlineKeyboardButton{
-				Text: buttonText, CallbackData: callbackDataPrefix + option,
-			})
+			if category == selectedCategory {
+				button.Style = buttonStyleSelected
+			}
+			row = append(row, button)
 		}
 		buttons = append(buttons, row)
 	}
@@ -145,4 +149,89 @@ func buildInlineKeyboard(options []string, selectedOption string) telemodels.Inl
 	return telemodels.InlineKeyboardMarkup{
 		InlineKeyboard: buttons,
 	}
+}
+
+func getSelectedKeyboardButtonData(buttons [][]telemodels.InlineKeyboardButton) string {
+	for _, row := range buttons {
+		for i := range row {
+			if row[i].Style == "success" {
+				return row[i].CallbackData
+			}
+		}
+	}
+	return ""
+}
+
+func (b *bot) callbackHandlerCategory(ctx context.Context, bot *telebot.Bot, update *telemodels.Update) {
+	transactionID, selectedCategory := decodeCategoryCallbackData(update.CallbackQuery.Data)
+
+	var err error
+	defer func() {
+		var callbackText string
+		if err != nil {
+			callbackText = "ERROR: " + err.Error()
+			logger.Errorv(err)
+		} else {
+			callbackText = fmt.Sprintf("Category for #%s set to %q", transactionID, selectedCategory)
+			logger.Info(callbackText)
+		}
+
+		// trim to max length of 200 chars
+		if utf8.RuneCountInString(callbackText) > 200 {
+			callbackText = callbackText[:197] + "..."
+		}
+		_, innerErr := bot.AnswerCallbackQuery(ctx, &telebot.AnswerCallbackQueryParams{
+			CallbackQueryID: update.CallbackQuery.ID,
+			Text:            callbackText,
+		})
+		if innerErr != nil {
+			logger.Errorv(innerErr)
+		}
+	}()
+
+	if err = validateSelectedCategory(update.CallbackQuery); err != nil {
+		return
+	}
+
+	attachedMessage := update.CallbackQuery.Message
+	if attachedMessage.Message == nil {
+		err = errors.New("received callback query without message data, ignoring")
+		return
+	}
+
+	var updated *domain.TransactionRead
+	updated, err = b.firefly.UpdateTransactionCategory(ctx, transactionID, selectedCategory)
+	if err != nil {
+		return
+	}
+
+	// update keyboard to reflect new selected category
+	var categories []string
+	if categories, err = b.firefly.ListCategories(ctx); err != nil {
+		return
+	}
+	replyMarkup := buildInlineCategoryKeyboard(transactionID, categories, updated.Category)
+
+	_, err = bot.EditMessageReplyMarkup(ctx, &telebot.EditMessageReplyMarkupParams{
+		ChatID:          attachedMessage.Message.Chat.ID,
+		MessageID:       attachedMessage.Message.ID,
+		InlineMessageID: update.CallbackQuery.InlineMessageID,
+		ReplyMarkup:     replyMarkup,
+	})
+	if err != nil {
+		err = fmt.Errorf("failed to update inline keyboard: %w", err)
+	}
+}
+
+func validateSelectedCategory(callback *telemodels.CallbackQuery) error {
+	previouslySelectedCategoryData := getSelectedKeyboardButtonData(callback.Message.Message.ReplyMarkup.InlineKeyboard)
+	if previouslySelectedCategoryData == "" {
+		return nil
+	}
+	_, previouslySelectedCategory := decodeCategoryCallbackData(previouslySelectedCategoryData)
+	_, selectedCategory := decodeCategoryCallbackData(callback.Data)
+	if previouslySelectedCategory != "" && selectedCategory == previouslySelectedCategory {
+		return fmt.Errorf("transaction already has category %q", selectedCategory)
+	}
+	return nil
 }
