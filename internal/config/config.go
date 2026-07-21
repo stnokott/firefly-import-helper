@@ -21,6 +21,7 @@ const (
 
 // Env contains the configuration data read from environment variables.
 type Env struct {
+	ImportCron         string `required:"true" envconfig:"IMPORT_CRON"`
 	TelegramBotToken   string `required:"true" envconfig:"TELEGRAM_BOT_TOKEN"`
 	TelegramChatID     string `required:"true" envconfig:"TELEGRAM_CHAT_ID"`
 	FireflyBaseURL     *URL   `required:"true" envconfig:"FIREFLY_BASE_URL"`

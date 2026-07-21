@@ -14,6 +14,8 @@ import (
 	"github.com/stnokott/firefly-import-helper/internal/log"
 
 	_ "time/tzdata"
+
+	"github.com/adhocore/gronx"
 )
 
 var logger = log.For("importer")
@@ -32,6 +34,7 @@ func New(cfg *config.YAML, msg domain.Messenger, bank domain.BankConnector, ff d
 		msg:     msg,
 		bank:    bank,
 		firefly: ff,
+		// at first launch, attempt to import full time range
 		lastRun: time.Date(1900, 1, 1, 0, 0, 0, 0, time.UTC),
 	}
 	if err := im.validateConfig(); err != nil {
@@ -51,13 +54,34 @@ func (im *Importer) validateConfig() error {
 	return im.cfg.ValidateFireflyIDs(ffAccounts)
 }
 
-func (im *Importer) Import(ctx context.Context, dryRun bool) (err error) {
+func (im *Importer) ScheduleImports(ctx context.Context, cronExpr string) error {
+	if !gronx.IsValid(cronExpr) {
+		return fmt.Errorf("invalid cron expression %q", cronExpr)
+	}
+
+	for {
+		next, _ := gronx.NextTick(cronExpr, true)
+		logger.Info("next import scheduled for " + next.Format(time.DateTime))
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-time.Tick(time.Until(next)):
+		}
+
+		if err := im.Import(ctx); err != nil {
+			return err
+		}
+	}
+}
+
+func (im *Importer) Import(ctx context.Context) (err error) {
 	logger.Info("starting import")
+	start := time.Now()
 	defer func() {
 		if err != nil {
 			logger.Infof("import ended with error: %v", err)
 		} else {
-			logger.Info("import finished")
+			logger.Infof("import finished, took %v", time.Since(start))
 		}
 	}()
 
@@ -71,6 +95,8 @@ func (im *Importer) Import(ctx context.Context, dryRun bool) (err error) {
 	if err != nil {
 		return err
 	}
+
+	from, to := im.nextImportRange()
 
 	for i, acc := range accounts {
 		logger.Infof("importing %d/%d: %s @ %s", i+1, len(accounts), acc.Name, acc.Institution)
@@ -91,7 +117,7 @@ func (im *Importer) Import(ctx context.Context, dryRun bool) (err error) {
 				Problem: "Internal data provider error.",
 			})
 		case acc.Status == domain.BankAccountStatusActive:
-			imported, err := im.importAccount(ctx, acc, ffCategories)
+			imported, err := im.importAccount(ctx, acc, from, to, ffCategories)
 			if err != nil {
 				logger.Errorv(err)
 			} else {
@@ -100,7 +126,7 @@ func (im *Importer) Import(ctx context.Context, dryRun bool) (err error) {
 		}
 	}
 
-	im.lastRun = time.Now()
+	im.lastRun = to
 	return nil
 }
 
@@ -112,17 +138,20 @@ func (im *Importer) Import(ctx context.Context, dryRun bool) (err error) {
 func (im *Importer) nextImportRange() (from, to time.Time) {
 	minFrom := im.bank.MinImportTransactionTime()
 	from = slices.MaxFunc([]time.Time{im.lastRun, minFrom}, time.Time.Compare)
-	to = from.Add(7 * 24 * time.Hour)
+	to = time.Now()
 	return
 }
 
 // importAccount imports transactions for the given account and returns the number of imported transactions.
-func (im *Importer) importAccount(ctx context.Context, acc domain.BankAccount, ffCategories []string) (int, error) {
-	from, to := im.nextImportRange()
+func (im *Importer) importAccount(ctx context.Context, acc domain.BankAccount, from, to time.Time, ffCategories []string) (int, error) {
 	transactions, err := im.bank.GetTransactions(ctx, acc.ID, from, to)
 	if err != nil {
 		return 0, fmt.Errorf("could not get transactions: %w", err)
 	}
+	slices.SortFunc(transactions, func(a, b domain.BankTransaction) int {
+		// old to new
+		return a.Date.Compare(b.Date)
+	})
 
 	created := 0
 	fireflyAccountID := im.cfg.AccountsByBankID[acc.ID].FireflyID // always resolves due to previous validation

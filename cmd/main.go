@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -11,7 +10,6 @@ import (
 	"time"
 
 	"github.com/stnokott/firefly-import-helper/internal/config"
-	"github.com/stnokott/firefly-import-helper/internal/domain"
 	"github.com/stnokott/firefly-import-helper/internal/firefly"
 	"github.com/stnokott/firefly-import-helper/internal/importer"
 	"github.com/stnokott/firefly-import-helper/internal/log"
@@ -21,14 +19,12 @@ import (
 )
 
 const (
-	configFile    = "config.yaml"
-	importTimeout = 10 * time.Minute // TODO: set to import interval once configurable
+	configFile = "config.yaml"
 )
 
 func main() {
 	verbose := flag.Bool("verbose", false, "more logging")
 	doInit := flag.Bool("init", false, "when set, will bootstrap a config file and then exit")
-	doDryRun := flag.Bool("dry-run", false, "when set, will not modify any Firefly data")
 	noNotify := flag.Bool("no-notify", false, "when set, will disable any outward messenger communication")
 	flag.Parse()
 
@@ -48,7 +44,7 @@ func main() {
 	if *doInit {
 		err = bootstrapConfig(env)
 	} else {
-		err = run(env, *doDryRun, *noNotify)
+		err = run(env, *noNotify)
 	}
 
 	if err != nil {
@@ -74,7 +70,7 @@ func bootstrapConfig(env *config.Env) error {
 	return nil
 }
 
-func run(env *config.Env, dryRun bool, disableNotifications bool) error {
+func run(env *config.Env, disableNotifications bool) error {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
 	defer cancel()
 
@@ -88,18 +84,8 @@ func run(env *config.Env, dryRun bool, disableNotifications bool) error {
 		return fmt.Errorf("could not create Firefly API client: %w", err)
 	}
 
-	if dryRun {
-		ff = struct {
-			domain.FireflyWriter
-			domain.FireflyReader
-		}{
-			FireflyWriter: firefly.NewNoopWriter(),
-			FireflyReader: ff,
-		}
-	}
-
 	messenger := telegram.NewNoop()
-	if !disableNotifications && !dryRun {
+	if !disableNotifications {
 		if messenger, err = telegram.NewBot(
 			env.TelegramBotToken, env.FireflyBaseURL.URL, env.TelegramChatID, ff,
 		); err != nil {
@@ -120,13 +106,7 @@ func run(env *config.Env, dryRun bool, disableNotifications bool) error {
 		return nil
 	})
 	eg.Go(func() error {
-		ctxImporter, cancelImporter := context.WithTimeoutCause(
-			ctxEg,
-			importTimeout,
-			errors.New("timeout exceeded"),
-		)
-		defer cancelImporter()
-		return im.Import(ctxImporter, dryRun)
+		return im.ScheduleImports(ctx, env.ImportCron)
 	})
 
 	// wait for potential shutdown actions in goroutines like sending goodbye messages
