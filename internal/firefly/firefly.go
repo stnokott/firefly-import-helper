@@ -31,7 +31,7 @@ func New(baseURL url.URL, token string) (domain.FireflyReadWriter, error) {
 			req.Header.Add("Authorization", "Bearer "+token)
 			req.Header.Add("Accept", "application/json")
 			req.Header.Add("User-Agent", config.AppName)
-			logger.Debugf(">> %s %v?%s", req.Method, req.URL, req.URL.RawQuery)
+			logger.Debugf(">> %s %v", req.Method, req.URL)
 			return nil
 		}),
 	)
