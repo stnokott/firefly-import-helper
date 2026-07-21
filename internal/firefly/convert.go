@@ -21,8 +21,8 @@ const (
 //goverter:output:format function
 //goverter:output:file convert.gen.go
 //goverter:output:package github.com/stnokott/firefly-import-helper/internal/firefly
+//goverter:enum yes
 //goverter:extend copyTime nullableFromTime nullableFromString
-//goverter:extend mapDomainTransactionType mapGeneratedTransactionType
 type Converter interface {
 	ConvertAccounts([]generated.AccountRead) []domain.FireflyAccount
 	//goverter:map Id ID
@@ -45,6 +45,20 @@ type Converter interface {
 	//goverter:map . SourceId | getSourceID
 	//goverter:map . SourceName | getSourceName
 	ConvertTransaction(t domain.BankTransaction, ffAccountID string) *generated.TransactionSplitStore
+
+	//goverter:enum:unknown @panic
+	//goverter:enum:map TransactionTypeDeposit Deposit
+	//goverter:enum:map TransactionTypeWithdrawal Withdrawal
+	//goverter:enum:map TransactionTypeTransfer Transfer
+	ConvertTransactionTypeDomain(domain.TransactionType) generated.TransactionTypeProperty
+
+	//goverter:enum:unknown @panic
+	//goverter:enum:map Deposit TransactionTypeDeposit
+	//goverter:enum:map Withdrawal TransactionTypeWithdrawal
+	//goverter:enum:map Transfer TransactionTypeTransfer
+	//goverter:enum:map OpeningBalance @panic
+	//goverter:enum:map Reconciliation @panic
+	ConvertTransactionTypeFirefly(generated.TransactionTypeProperty) domain.TransactionType
 
 	//goverter:ignore FireflyID FireflyURL
 	//goverter:map . AccountName | getAccountName
@@ -144,28 +158,6 @@ func getDestinationName(t domain.BankTransaction) nullable.Nullable[string] {
 		return nullable.NewNullableWithValue(unknownDestinationAccountName)
 	}
 	return nullable.NewNullableWithValue(*t.Merchant)
-}
-
-func mapDomainTransactionType(in domain.TransactionType) generated.TransactionTypeProperty {
-	switch in {
-	case domain.TransactionTypeDeposit:
-		return generated.Deposit
-	case domain.TransactionTypeWithdrawal:
-		return generated.Withdrawal
-	default:
-		panic("unmapped domain transaction type " + string(in))
-	}
-}
-
-func mapGeneratedTransactionType(in generated.TransactionTypeProperty) domain.TransactionType {
-	switch in {
-	case generated.Deposit:
-		return domain.TransactionTypeDeposit
-	case generated.Withdrawal:
-		return domain.TransactionTypeWithdrawal
-	default:
-		panic("unmapped generated transaction type " + string(in))
-	}
 }
 
 func getAccountName(in generated.TransactionSplit) string {

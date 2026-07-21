@@ -3,6 +3,7 @@
 package firefly
 
 import (
+	"fmt"
 	domain "github.com/stnokott/firefly-import-helper/internal/domain"
 	generated "github.com/stnokott/firefly-import-helper/internal/firefly/generated"
 )
@@ -37,12 +38,12 @@ func ConvertTransaction(source domain.BankTransaction, context string) *generate
 	(*pGeneratedTransactionSplitStore).ExternalId = nullableFromString(source.ID)
 	(*pGeneratedTransactionSplitStore).SourceId = getSourceID(source, context)
 	(*pGeneratedTransactionSplitStore).SourceName = getSourceName(source)
-	(*pGeneratedTransactionSplitStore).Type = mapDomainTransactionType(source.Type)
+	(*pGeneratedTransactionSplitStore).Type = ConvertTransactionTypeDomain(source.Type)
 	return pGeneratedTransactionSplitStore
 }
 func ConvertTransactionSplit(source generated.TransactionSplit) *domain.TransactionRead {
 	var domainTransactionRead domain.TransactionRead
-	domainTransactionRead.Type = mapGeneratedTransactionType(source.Type)
+	domainTransactionRead.Type = ConvertTransactionTypeFirefly(source.Type)
 	domainTransactionRead.AccountName = getAccountName(source)
 	domainTransactionRead.MerchantName = getMerchantName(source)
 	domainTransactionRead.Amount = float64(source.Amount)
@@ -51,4 +52,36 @@ func ConvertTransactionSplit(source generated.TransactionSplit) *domain.Transact
 	domainTransactionRead.Description = source.Description
 	domainTransactionRead.Category = stringOrEmpty(source.CategoryName)
 	return &domainTransactionRead
+}
+func ConvertTransactionTypeDomain(source domain.TransactionType) generated.TransactionTypeProperty {
+	var generatedTransactionTypeProperty generated.TransactionTypeProperty
+	switch source {
+	case domain.TransactionTypeDeposit:
+		generatedTransactionTypeProperty = generated.Deposit
+	case domain.TransactionTypeTransfer:
+		generatedTransactionTypeProperty = generated.Transfer
+	case domain.TransactionTypeWithdrawal:
+		generatedTransactionTypeProperty = generated.Withdrawal
+	default:
+		panic(fmt.Sprintf("unexpected enum element: %v", source))
+	}
+	return generatedTransactionTypeProperty
+}
+func ConvertTransactionTypeFirefly(source generated.TransactionTypeProperty) domain.TransactionType {
+	var domainTransactionType domain.TransactionType
+	switch source {
+	case generated.Deposit:
+		domainTransactionType = domain.TransactionTypeDeposit
+	case generated.OpeningBalance:
+		panic(fmt.Sprintf("unexpected enum element: %v", source))
+	case generated.Reconciliation:
+		panic(fmt.Sprintf("unexpected enum element: %v", source))
+	case generated.Transfer:
+		domainTransactionType = domain.TransactionTypeTransfer
+	case generated.Withdrawal:
+		domainTransactionType = domain.TransactionTypeWithdrawal
+	default:
+		panic(fmt.Sprintf("unexpected enum element: %v", source))
+	}
+	return domainTransactionType
 }

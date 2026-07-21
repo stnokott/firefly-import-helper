@@ -53,6 +53,7 @@ type TransactionType string
 const (
 	TransactionTypeWithdrawal TransactionType = "WITHDRAWAL"
 	TransactionTypeDeposit    TransactionType = "DEPOSIT"
+	TransactionTypeTransfer   TransactionType = "TRANSFER"
 )
 
 type FireflyReadWriter interface {

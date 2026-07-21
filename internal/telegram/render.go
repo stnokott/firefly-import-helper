@@ -33,10 +33,14 @@ var tmplNewTransaction = template.Must(template.New("tmplNewTransaction").Funcs(
 			return fmt.Sprintf("%.2f", f)
 		},
 		"formatTransactionType": func(typ domain.TransactionType) string {
-			if typ == domain.TransactionTypeDeposit {
+			switch typ {
+			case domain.TransactionTypeDeposit:
 				return "Deposit ⤵️"
+			case domain.TransactionTypeWithdrawal:
+				return "Withdrawal ⤴️"
+			default:
+				return "Transfer ➡️"
 			}
-			return "Withdrawal ⤴️"
 		},
 		"transactionTypeArrow": func(typ domain.TransactionType) string {
 			if typ == domain.TransactionTypeDeposit {
