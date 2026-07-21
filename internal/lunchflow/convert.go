@@ -65,9 +65,9 @@ func applyDescriptionRules(t Transaction) string {
 
 	desc := *t.Description
 	for name, rule := range descriptionRules {
-		logger.Debugf("before description transformation rule '%s': %s", name, desc)
+		before := desc
 		desc = rule(desc)
-		logger.Debugf("after description transformation rule '%s': %s", name, desc)
+		logger.Debugf("transformation rule %q: %q --> %q", name, before, desc)
 	}
 
 	return desc
